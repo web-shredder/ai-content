@@ -779,11 +779,11 @@ def main():
     
     # Sidebar for API key
     with st.sidebar:
-        st.markdown("###Configuration")
+        st.markdown("### Configuration")
         api_key = st.text_input("OpenAI API Key", type="password", help="Your API key is not stored")
 
         if st.session_state.current_content:
-            st.markdown("###Current Session")
+            st.markdown("### Current Session")
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
             st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
@@ -1003,14 +1003,14 @@ def main():
     
     with tab4:
         st.markdown("""
-        ###Getting Started
+        ### Getting Started
         
         1. **Enter your OpenAI API Key** in the sidebar (it's not stored)
         2. **Fill out the content request form** with your requirements
         3. **Select an AI model** (GPT-4 recommended for best quality)
         4. **Click Generate Content** and watch your AI team work!
         
-        ###The AI Team
+        ### The AI Team
         
         Your content goes through 5 specialist AI agents:
         
@@ -1020,7 +1020,7 @@ def main():
         4. **Head of Content** - Ensures brand alignment
         5. **Editor-in-Chief** - Final review and approval
         
-        ###Tips for Best Results
+        ### Tips for Best Results
         
         - Be specific with your topic and key messages
         - Include relevant keywords for SEO optimization
