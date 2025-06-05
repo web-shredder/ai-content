@@ -582,6 +582,108 @@ def create_download_button(content, filename, button_text, file_format):
         href = f'<a href="data:application/json;base64,{b64}" download="{filename}">📥 {button_text}</a>'
         st.markdown(href, unsafe_allow_html=True)
 
+def display_generated_content(results, model, api_key):
+    """Display generated content and enable revision workflow"""
+    st.markdown("---")
+    st.markdown("## Generated Content")
+
+    # Title
+    st.markdown(f"### {results['final_title']}")
+
+    # Status and score
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        score_value = int(results['score'].split('/')[0])
+        score_class = "high" if score_value >= 8 else "medium" if score_value >= 6 else "low"
+        st.markdown(
+            f'<div class="score-badge score-{score_class}">Score: {results["score"]}</div>',
+            unsafe_allow_html=True
+        )
+
+        if results['approval'] == "Approved":
+            st.success(f" {results['approval']}")
+        else:
+            st.warning(f" {results['approval']}")
+
+    with col2:
+        if results.get('comments'):
+            st.info(f"💭 Editor's Note: {results['comments']}")
+
+    # Content preview
+    with st.expander(" View Full Content", expanded=True):
+        st.markdown(results['final_content'])
+
+    # Download options
+    st.markdown("### Download Content")
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1:
+        create_download_button(
+            results['final_content'],
+            f"{results['final_title'].replace(' ', '_')}.md",
+            "Markdown",
+            "md"
+        )
+
+    with col2:
+        create_download_button(
+            results['final_content'],
+            f"{results['final_title'].replace(' ', '_')}.html",
+            "HTML",
+            "html"
+        )
+
+    with col3:
+        # Note: DOCX requires python-docx - simplified for demo
+        st.button("Word (.docx)", disabled=True, help="Coming soon")
+
+    with col4:
+        # Note: PDF requires additional libraries - simplified for demo
+        st.button("PDF", disabled=True, help="Coming soon")
+
+    with col5:
+        create_download_button(
+            results,
+            f"{results['final_title'].replace(' ', '_')}.json",
+            "JSON",
+            "json"
+        )
+
+    # Revision section
+    st.markdown("###Request Revisions")
+    with st.form("revision_form"):
+        feedback = st.text_area(
+            "Describe the changes you'd like",
+            placeholder="e.g., Make the introduction shorter and add a stronger call-to-action at the end...",
+        )
+
+        if st.form_submit_button("Apply Revisions"):
+            if feedback:
+                with st.spinner("Applying your revisions..."):
+                    revision_result = apply_revision(
+                        results['final_content'],
+                        feedback,
+                        model,
+                        api_key
+                    )
+
+                    if revision_result:
+                        # Update current content
+                        st.session_state.current_content['final_content'] = revision_result['content']
+                        st.session_state.current_content['approval'] = revision_result['approval']
+                        st.session_state.current_content['score'] = revision_result['score']
+
+                        # Add to history
+                        st.session_state.history.append({
+                            "version": len(st.session_state.history) + 1,
+                            "timestamp": datetime.now().isoformat(),
+                            "revision_feedback": feedback,
+                            "results": st.session_state.current_content.copy()
+                        })
+
+                        st.success("Revisions applied successfully!")
+                        st.experimental_rerun()
+
 # Main app
 def main():
     st.title("Momentic AI Content Team")
@@ -708,106 +810,9 @@ def main():
                     "results": results
                 })
                 
-                # Display results
-                st.markdown("---")
-                st.markdown("## Generated Content")
-                
-                # Title
-                st.markdown(f"### {results['final_title']}")
-                
-                # Status and score
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    score_value = int(results['score'].split('/')[0])
-                    score_class = "high" if score_value >= 8 else "medium" if score_value >= 6 else "low"
-                    st.markdown(
-                        f'<div class="score-badge score-{score_class}">Score: {results["score"]}</div>',
-                        unsafe_allow_html=True
-                    )
-                    
-                    if results['approval'] == "Approved":
-                        st.success(f" {results['approval']}")
-                    else:
-                        st.warning(f" {results['approval']}")
-                
-                with col2:
-                    if results.get('comments'):
-                        st.info(f"💭 Editor's Note: {results['comments']}")
-                
-                # Content preview
-                with st.expander(" View Full Content", expanded=True):
-                    st.markdown(results['final_content'])
-                
-                # Download options
-                st.markdown("### Download Content")
-                col1, col2, col3, col4, col5 = st.columns(5)
-                
-                with col1:
-                    create_download_button(
-                        results['final_content'],
-                        f"{results['final_title'].replace(' ', '_')}.md",
-                        "Markdown",
-                        "md"
-                    )
-                
-                with col2:
-                    create_download_button(
-                        results['final_content'],
-                        f"{results['final_title'].replace(' ', '_')}.html",
-                        "HTML",
-                        "html"
-                    )
-                
-                with col3:
-                    # Note: DOCX requires python-docx - simplified for demo
-                    st.button("Word (.docx)", disabled=True, help="Coming soon")
-                
-                with col4:
-                    # Note: PDF requires additional libraries - simplified for demo
-                    st.button("PDF", disabled=True, help="Coming soon")
-                
-                with col5:
-                    create_download_button(
-                        results,
-                        f"{results['final_title'].replace(' ', '_')}.json",
-                        "JSON",
-                        "json"
-                    )
-                
-                # Revision section
-                st.markdown("###Request Revisions")
-                with st.form("revision_form"):
-                    feedback = st.text_area(
-                        "Describe the changes you'd like",
-                        placeholder="e.g., Make the introduction shorter and add a stronger call-to-action at the end..."
-                    )
-                    
-                    if st.form_submit_button("Apply Revisions"):
-                        if feedback:
-                            with st.spinner("Applying your revisions..."):
-                                revision_result = apply_revision(
-                                    results['final_content'],
-                                    feedback,
-                                    model,
-                                    api_key
-                                )
-                                
-                                if revision_result:
-                                    # Update current content
-                                    st.session_state.current_content['final_content'] = revision_result['content']
-                                    st.session_state.current_content['approval'] = revision_result['approval']
-                                    st.session_state.current_content['score'] = revision_result['score']
-                                    
-                                    # Add to history
-                                    st.session_state.history.append({
-                                        "version": len(st.session_state.history) + 1,
-                                        "timestamp": datetime.now().isoformat(),
-                                        "revision_feedback": feedback,
-                                        "results": st.session_state.current_content.copy()
-                                    })
-                                    
-                                    st.success("Revisions applied successfully!")
-                                    st.experimental_rerun()
+                display_generated_content(results, model, api_key)
+        elif st.session_state.current_content:
+            display_generated_content(st.session_state.current_content, model, api_key)
     
     with tab2:
         if not api_key:
