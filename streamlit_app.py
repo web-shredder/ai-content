@@ -356,7 +356,13 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
         return None
 
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
-    """Run the full 5-agent content creation pipeline"""
+    """Run the full 5-agent content creation pipeline
+
+    Parameters
+    ----------
+    status_container : st.container
+        Sidebar container used to display stage status messages.
+    """
     
     # Extract inputs
     content_type = inputs["content_type"]
@@ -703,12 +709,15 @@ def main():
     with st.sidebar:
         st.markdown("###Configuration")
         api_key = st.text_input("OpenAI API Key", type="password", help="Your API key is not stored")
-        
+
         if st.session_state.current_content:
             st.markdown("###Current Session")
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
             st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
+
+        # Container to display pipeline status messages
+        status_container = st.container()
     
     # Main content area
     tab1, tab2, tab3, tab4 = st.tabs(["Create Content", "Talk with the team", "Version History", "Help"])
@@ -804,7 +813,7 @@ def main():
             }
             
             # Create containers for status and progress
-            status_container = st.empty()
+            status_container.empty()
             progress_bar = st.progress(0)
             
             # Run the pipeline
