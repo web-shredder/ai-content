@@ -6,6 +6,8 @@ import io
 import time
 from docx import Document
 import markdown
+import base64
+import re
 
 # Page configuration
 st.set_page_config(
@@ -378,6 +380,21 @@ def parse_next_steps(output):
         return content.strip(), steps
     return output.strip(), []
 
+def parse_queries(text: str) -> list[str]:
+    """Extract search queries from SEO Specialist output."""
+
+    queries: list[str] = []
+    bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
+
+    for line in text.splitlines():
+        match = bullet_pattern.match(line.strip())
+        if match:
+            query = match.group(1).strip()
+            if query:
+                queries.append(query)
+
+    return queries
+
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
     """Run the full 5-agent content creation pipeline
 
@@ -397,14 +414,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     keywords = inputs["keywords"]
     compliance = inputs["compliance"]
     references = inputs["references"]
-    
-    results = {
-        "strategy": None,
-        "draft": None,
-        "seo_content": None,
-        "polished": None,
-        "editor_review": None,
-    }
+    results = {}
     next_steps = {}
     
     # Stage 1: Strategist
@@ -470,6 +480,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         return None
     seo_content, steps = parse_next_steps(seo_raw)
     results["seo_content"] = seo_content
+    results["queries"] = parse_queries(seo_content)
     next_steps["SEO Specialist"] = steps
     progress_bar.progress(0.6)
     
@@ -673,6 +684,18 @@ def display_generated_content(results, model, api_key):
 
         with st.expander(" View Full Content", expanded=True):
             st.markdown(results['final_content'])
+            
+        if results.get('queries'):
+            st.markdown("### Suggested Search Queries")
+            for q in results['queries']:
+                st.markdown(f"- {q}")
+
+            dot = "digraph G {root [label=\"" + results['final_title'] + "\"];"
+            for i, q in enumerate(results['queries']):
+                node = f"q{i}"
+                dot += f"root -> {node}; {node} [label=\"{q}\"];"
+            dot += "}"
+            st.graphviz_chart(dot)
 
         st.markdown("### Download Content")
         col1, col2, col3, col4, col5 = st.columns(5)
@@ -821,6 +844,7 @@ def main():
     
     # Main content area
     tab1, tab2, tab3 = st.tabs(["Create Content", "Version History", "Help"])
+
     
     with tab1:
         if not api_key:
