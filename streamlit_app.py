@@ -123,6 +123,14 @@ if "chats" not in st.session_state:
     }
 if "last_model" not in st.session_state:
     st.session_state.last_model = "4o"
+if "agent_status" not in st.session_state:
+    st.session_state.agent_status = {
+        "Strategist": "Pending",
+        "Specialist Writer": "Pending",
+        "SEO Specialist": "Pending",
+        "Head of Content": "Pending",
+        "Editor-in-Chief": "Pending",
+    }
 
 # Model mapping
 MODEL_MAP = {
@@ -395,13 +403,29 @@ def parse_queries(text: str) -> list[str]:
 
     return queries
 
-def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
+
+def refresh_current_session(container):
+    """Update the sidebar session info with agent statuses."""
+    container.empty()
+    with container:
+        st.markdown("### Current Session")
+        if st.session_state.get("current_content"):
+            st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
+            st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
+            st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
+        st.markdown("#### Agent Status")
+        for agent, status in st.session_state.agent_status.items():
+            st.markdown(f"- **{agent}**: {status}")
+
+def run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_container):
     """Run the full 5-agent content creation pipeline
 
     Parameters
     ----------
     status_container : st.container
         Sidebar container used to display stage status messages.
+    session_container : st.container
+        Sidebar container showing current session details.
     """
     
     # Extract inputs
@@ -416,9 +440,16 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     references = inputs["references"]
     results = {}
     next_steps = {}
+
+    st.session_state.current_content = {}
+    for agent in st.session_state.agent_status:
+        st.session_state.agent_status[agent] = "Queued"
+    refresh_current_session(session_container)
     
     # Stage 1: Strategist
     start_time = datetime.now()
+    st.session_state.agent_status["Strategist"] = "In progress"
+    refresh_current_session(session_container)
     status_container.info(f"🎯 {start_time:%H:%M:%S} - **Strategist** is planning content strategy...")
     
     strategist_prompt = f"""
@@ -438,10 +469,15 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         return None
     strategy, steps = parse_next_steps(strategy_raw)
     results["strategy"] = strategy
+    st.session_state.current_content["strategy"] = strategy
     next_steps["Strategist"] = steps
+    st.session_state.agent_status["Strategist"] = "Completed"
+    refresh_current_session(session_container)
     progress_bar.progress(0.2)
     
     # Stage 2: Specialist Writer
+    st.session_state.agent_status["Specialist Writer"] = "In progress"
+    refresh_current_session(session_container)
     status_container.info(f"✍️ {datetime.now():%H:%M:%S} - **Specialist Writer** is drafting content...")
     
     writer_prompt = f"""
@@ -460,10 +496,15 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         return None
     draft, steps = parse_next_steps(draft_raw)
     results["draft"] = draft
+    st.session_state.current_content["draft"] = draft
     next_steps["Specialist Writer"] = steps
+    st.session_state.agent_status["Specialist Writer"] = "Completed"
+    refresh_current_session(session_container)
     progress_bar.progress(0.4)
     
     # Stage 3: SEO Specialist
+    st.session_state.agent_status["SEO Specialist"] = "In progress"
+    refresh_current_session(session_container)
     status_container.info(f"🔍 {datetime.now():%H:%M:%S} - **SEO Specialist** is optimizing for search...")
     
     seo_prompt = f"""
@@ -480,11 +521,16 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         return None
     seo_content, steps = parse_next_steps(seo_raw)
     results["seo_content"] = seo_content
+    st.session_state.current_content["seo_content"] = seo_content
     results["queries"] = parse_queries(seo_content)
     next_steps["SEO Specialist"] = steps
+    st.session_state.agent_status["SEO Specialist"] = "Completed"
+    refresh_current_session(session_container)
     progress_bar.progress(0.6)
     
     # Stage 4: Head of Content
+    st.session_state.agent_status["Head of Content"] = "In progress"
+    refresh_current_session(session_container)
     status_container.info(f"📝 {datetime.now():%H:%M:%S} - **Head of Content** is refining for brand alignment...")
     
     head_prompt = f"""
@@ -503,10 +549,15 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         return None
     polished, steps = parse_next_steps(polished_raw)
     results["polished"] = polished
+    st.session_state.current_content["polished"] = polished
     next_steps["Head of Content"] = steps
+    st.session_state.agent_status["Head of Content"] = "Completed"
+    refresh_current_session(session_container)
     progress_bar.progress(0.8)
     
     # Stage 5: Editor-in-Chief
+    st.session_state.agent_status["Editor-in-Chief"] = "In progress"
+    refresh_current_session(session_container)
     status_container.info(f"✅ {datetime.now():%H:%M:%S} - **Editor-in-Chief** is reviewing for final approval...")
     
     editor_prompt = f"""
@@ -523,7 +574,10 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         return None
     editor_review, steps = parse_next_steps(editor_raw)
     results["editor_review"] = editor_review
+    st.session_state.current_content["editor_review"] = editor_review
     next_steps["Editor-in-Chief"] = steps
+    st.session_state.agent_status["Editor-in-Chief"] = "Completed"
+    refresh_current_session(session_container)
     progress_bar.progress(1.0)
     
     # Parse editor review
@@ -560,6 +614,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         results["next_steps"] = next_steps
     
     status_container.success(f"✨ {datetime.now():%H:%M:%S} - Content generation complete!")
+    refresh_current_session(session_container)
     
     return results
 
@@ -779,6 +834,8 @@ def display_generated_content(results, model, api_key):
                             "results": st.session_state.current_content.copy()
                         })
 
+                        refresh_current_session(session_container)
+
                         st.success("Revisions applied successfully!")
                         st.experimental_rerun()
 
@@ -792,11 +849,8 @@ def main():
         st.markdown("### Configuration")
         api_key = st.text_input("OpenAI API Key", type="password", help="Your API key is not stored")
 
-        if st.session_state.current_content:
-            st.markdown("### Current Session")
-            st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
-            st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
-            st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
+        session_container = st.container()
+        refresh_current_session(session_container)
 
         # Container to display pipeline status messages
         status_container = st.container()
@@ -942,7 +996,7 @@ def main():
             progress_bar = st.progress(0)
             
             # Run the pipeline
-            results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
+            results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_container)
 
             if results:
                 # Store in session state
