@@ -706,19 +706,18 @@ def main():
     with tab1:
         if not api_key:
             st.warning("👈 Please enter your OpenAI API key in the sidebar to begin.")
-            return
-        
-        # Content request form
-        with st.form("content_request"):
-            st.markdown("### Content Request Form")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                content_type = st.selectbox(
-                    "Content Type",
-                    ["Blog Post", "Social Media Caption", "Email Newsletter", "Press Release", "Product Description", "Landing Page Copy"]
-                )
+        else:
+            # Content request form
+            with st.form("content_request"):
+                st.markdown("### Content Request Form")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    content_type = st.selectbox(
+                        "Content Type",
+                        ["Blog Post", "Social Media Caption", "Email Newsletter", "Press Release", "Product Description", "Landing Page Copy"]
+                    )
                 
                 topic = st.text_input(
                     "Topic/Title",
@@ -735,41 +734,41 @@ def main():
                     ["Short (~300 words)", "Medium (600-800 words)", "Long (1200+ words)"]
                 )
             
-            with col2:
-                model = st.selectbox(
-                    "AI Model",
-                    ["4.1", "4o", "o3"],
-                    index=1
+                with col2:
+                    model = st.selectbox(
+                        "AI Model",
+                        ["4.1", "4o", "o3"],
+                        index=1
+                    )
+
+                    keywords = st.text_input(
+                        "SEO Keywords (comma-separated)",
+                        placeholder="e.g., sustainable packaging, eco-friendly"
+                    )
+
+                    brand_voice = st.text_input(
+                        "Brand Voice Override (optional)",
+                        placeholder="e.g., Casual and humorous"
+                    )
+
+                    compliance = st.text_input(
+                        "Compliance Requirements",
+                        placeholder="e.g., No medical claims"
+                    )
+
+                key_messages = st.text_area(
+                    "Key Messages/Points",
+                    placeholder="List the main points that must be included...",
+                    height=100
                 )
-                
-                keywords = st.text_input(
-                    "SEO Keywords (comma-separated)",
-                    placeholder="e.g., sustainable packaging, eco-friendly"
+
+                uploaded_files = st.file_uploader(
+                    "Reference Materials (optional)",
+                    accept_multiple_files=True,
+                    type=['txt', 'pdf', 'docx', 'md']
                 )
-                
-                brand_voice = st.text_input(
-                    "Brand Voice Override (optional)",
-                    placeholder="e.g., Casual and humorous"
-                )
-                
-                compliance = st.text_input(
-                    "Compliance Requirements",
-                    placeholder="e.g., No medical claims"
-                )
-            
-            key_messages = st.text_area(
-                "Key Messages/Points",
-                placeholder="List the main points that must be included...",
-                height=100
-            )
-            
-            uploaded_files = st.file_uploader(
-                "Reference Materials (optional)",
-                accept_multiple_files=True,
-                type=['txt', 'pdf', 'docx', 'md']
-            )
-            
-            submitted = st.form_submit_button("Get started, team!", use_container_width=True)
+
+                submitted = st.form_submit_button("Get started, team!", use_container_width=True)
         
         # Process form submission
         if submitted and topic:
@@ -817,98 +816,94 @@ def main():
     with tab2:
         if not api_key:
             st.warning("Please enter your OpenAI API key to use agent chat.")
-            return
-            
-        st.markdown("### 💬 Chat with AI Agents")
-        
-        if not st.session_state.current_content:
+        elif not st.session_state.current_content:
             st.info("Generate content first to chat with the AI agents about it.")
-            return
-        
-        # Agent selector
-        selected_agent = st.selectbox(
-            "Select an agent to chat with:",
-            ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"]
-        )
-        
-        # Chat interface
-        chat_container = st.container()
-        
-        # Display chat history
-        with chat_container:
-            for message in st.session_state.chats[selected_agent]:
-                if message["role"] == "user":
-                    st.chat_message("user").markdown(message["content"])
-                else:
-                    st.chat_message("assistant").markdown(message["content"])
-        
-        # Chat input
-        user_input = st.chat_input(f"Ask {selected_agent} a question...")
-        
-        if user_input:
-            # Add user message to history
-            st.session_state.chats[selected_agent].append({
-                "role": "user",
-                "content": user_input
-            })
-            
-            # Get agent response
-            with st.spinner(f"{selected_agent} is thinking..."):
-                # Build context
-                context = f"""
-                Current content being discussed:
-                Title: {st.session_state.current_content.get('final_title', 'N/A')}
-                Score: {st.session_state.current_content.get('score', 'N/A')}
-                
-                Content preview:
-                {st.session_state.current_content.get('final_content', '')[:500]}...
-                """
-                
-                # Call agent
-                response = call_agent(selected_agent, user_input, model, api_key, context)
-                
-                if response:
-                    st.session_state.chats[selected_agent].append({
-                        "role": "assistant",
-                        "content": response
-                    })
-                    st.experimental_rerun()
+        else:
+            st.markdown("### 💬 Chat with AI Agents")
+
+            # Agent selector
+            selected_agent = st.selectbox(
+                "Select an agent to chat with:",
+                ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"]
+            )
+
+            # Chat interface
+            chat_container = st.container()
+
+            # Display chat history
+            with chat_container:
+                for message in st.session_state.chats[selected_agent]:
+                    if message["role"] == "user":
+                        st.chat_message("user").markdown(message["content"])
+                    else:
+                        st.chat_message("assistant").markdown(message["content"])
+
+            # Chat input
+            user_input = st.chat_input(f"Ask {selected_agent} a question...")
+
+            if user_input:
+                # Add user message to history
+                st.session_state.chats[selected_agent].append({
+                    "role": "user",
+                    "content": user_input
+                })
+
+                # Get agent response
+                with st.spinner(f"{selected_agent} is thinking..."):
+                    # Build context
+                    context = f"""
+                    Current content being discussed:
+                    Title: {st.session_state.current_content.get('final_title', 'N/A')}
+                    Score: {st.session_state.current_content.get('score', 'N/A')}
+
+                    Content preview:
+                    {st.session_state.current_content.get('final_content', '')[:500]}...
+                    """
+
+                    # Call agent
+                    response = call_agent(selected_agent, user_input, model, api_key, context)
+
+                    if response:
+                        st.session_state.chats[selected_agent].append({
+                            "role": "assistant",
+                            "content": response
+                        })
+                        st.experimental_rerun()
     
     with tab3:
         st.markdown("### Content History")
         
         if not st.session_state.history:
             st.info("No content history yet. Generate some content to see version history.")
-            return
-        
-        # Display versions in reverse chronological order
-        for i, version in enumerate(reversed(st.session_state.history)):
-            version_num = len(st.session_state.history) - i
-            timestamp = datetime.fromisoformat(version['timestamp'])
-            
-            with st.expander(f"Version {version_num} - {timestamp:%Y-%m-%d %H:%M:%S}"):
-                if 'revision_feedback' in version:
-                    st.markdown(f"**Revision Applied:** {version['revision_feedback']}")
-                
-                st.markdown(f"**Title:** {version['results'].get('final_title', 'N/A')}")
-                st.markdown(f"**Score:** {version['results'].get('score', 'N/A')}")
-                st.markdown(f"**Status:** {version['results'].get('approval', 'N/A')}")
-                
-                if version['results'].get('comments'):
-                    st.markdown(f"**Editor Comments:** {version['results']['comments']}")
-                
-                st.markdown("**Content Preview:**")
-                st.markdown(version['results'].get('final_content', '')[:500] + "...")
-                
-                # Stage outputs (if available)
-                if st.checkbox(f"Show detailed stage outputs for Version {version_num}"):
-                    if 'strategy' in version['results']:
-                        st.markdown("**Strategist Output:**")
-                        st.text(version['results']['strategy'])
-                    
-                    if 'editor_review' in version['results']:
-                        st.markdown("**Editor Review:**")
-                        st.text(version['results']['editor_review'])
+        else:
+            # Display versions in reverse chronological order
+            for i, version in enumerate(reversed(st.session_state.history)):
+                version_num = len(st.session_state.history) - i
+                timestamp = datetime.fromisoformat(version['timestamp'])
+
+                with st.expander(f"Version {version_num} - {timestamp:%Y-%m-%d %H:%M:%S}"):
+                    if 'revision_feedback' in version:
+                        st.markdown(f"**Revision Applied:** {version['revision_feedback']}")
+
+                    st.markdown(f"**Title:** {version['results'].get('final_title', 'N/A')}")
+                    st.markdown(f"**Score:** {version['results'].get('score', 'N/A')}")
+                    st.markdown(f"**Status:** {version['results'].get('approval', 'N/A')}")
+
+                    if version['results'].get('comments'):
+                        st.markdown(f"**Editor Comments:** {version['results']['comments']}")
+
+                    st.markdown("**Content Preview:**")
+                    st.markdown(version['results'].get('final_content', '')[:500] + "...")
+
+                    # Stage outputs (if available)
+                    if st.checkbox(f"Show detailed stage outputs for Version {version_num}"):
+                        if 'strategy' in version['results']:
+                            st.markdown("**Strategist Output:**")
+                            st.text(version['results']['strategy'])
+
+                        if 'editor_review' in version['results']:
+                            st.markdown("**Editor Review:**")
+                            st.text(version['results']['editor_review'])
     
     with tab4:
         st.markdown("""
