@@ -8,6 +8,9 @@ from docx import Document
 import markdown
 import base64
 import re
+import networkx as nx
+from pyvis.network import Network
+import streamlit.components.v1 as components
 
 # Page configuration
 st.set_page_config(
@@ -784,12 +787,18 @@ def display_generated_content(results, model, api_key, session_placeholder):
             for q in results['queries']:
                 st.markdown(f"- {q}")
 
-            dot = "digraph G {root [label=\"" + results['final_title'] + "\"];"
+            # Build interactive network graph
+            G = nx.DiGraph()
+            G.add_node("root", label=results['final_title'])
             for i, q in enumerate(results['queries']):
                 node = f"q{i}"
-                dot += f"root -> {node}; {node} [label=\"{q}\"];"
-            dot += "}"
-            st.graphviz_chart(dot)
+                G.add_node(node, label=q)
+                G.add_edge("root", node)
+
+            net = Network(height="400px", width="100%", directed=True)
+            net.from_nx(G)
+            html = net.generate_html()
+            components.html(html, height=450, scrolling=True)
 
         st.markdown("### Download Content")
         col1, col2, col3, col4, col5 = st.columns(5)
