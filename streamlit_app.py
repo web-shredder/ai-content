@@ -134,7 +134,7 @@ if "agent_status" not in st.session_state:
 
 # Model mapping
 MODEL_MAP = {
-    "GPT-4.1": "gpt-4.1-2025-04-14",
+    "4.1": "gpt-4.1-2025-04-14",
     "4o": "gpt-4o-2024-08-06",
     "o3": "o3-2025-04-16"
 }
