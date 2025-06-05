@@ -106,6 +106,13 @@ st.markdown("""
         max-width: 50rem;
         margin: 0 auto;
     }
+
+    /* Sidebar chat styling */
+    .sidebar-chat-history {
+        max-height: 15rem;
+        overflow-y: auto;
+        font-size: 0.85rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -360,8 +367,9 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
     try:
         openai.api_key = api_key
         
+        system_content = AGENT_PROMPTS[agent_name] + "\n\nRespond in plain text only. Do not use Markdown formatting."
         messages = [
-            {"role": "system", "content": AGENT_PROMPTS[agent_name]},
+            {"role": "system", "content": system_content},
             {"role": "user", "content": f"{context}\n\n{prompt}"}
         ]
         
@@ -409,6 +417,17 @@ def parse_queries(text: str) -> list[str]:
                 queries.append(query)
 
     return queries
+
+
+def reset_chats():
+    """Clear all stored chat history."""
+    st.session_state.chats = {
+        "Strategist": [],
+        "Specialist Writer": [],
+        "SEO Specialist": [],
+        "Head of Content": [],
+        "Editor-in-Chief": []
+    }
 
 
 
@@ -841,6 +860,7 @@ def display_generated_content(results, model, api_key, session_placeholder):
                     )
 
                     if revision_result:
+                        reset_chats()
                         # Update current content
                         st.session_state.current_content['final_content'] = revision_result['content']
                         st.session_state.current_content['approval'] = revision_result['approval']
@@ -891,11 +911,14 @@ def main():
 
                 chat_container = st.container()
                 with chat_container:
+                    st.markdown('<div class="sidebar-chat-history">', unsafe_allow_html=True)
                     for message in st.session_state.chats[selected_agent]:
                         if message["role"] == "user":
                             st.chat_message("user").markdown(message["content"])
                         else:
-                            st.chat_message("assistant").markdown(message["content"])
+                            with st.chat_message("assistant"):
+                                st.text(message["content"])
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 user_input = st.chat_input(f"Ask {selected_agent} a question...", key="sidebar_chat_input")
 
@@ -1019,6 +1042,7 @@ def main():
             results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_placeholder)
 
             if results:
+                reset_chats()
                 # Store in session state
                 st.session_state.current_content = results.copy()
                 st.session_state.history.append({
@@ -1053,11 +1077,14 @@ def main():
         
         # Display chat history
         with chat_container:
+            st.markdown('<div class="sidebar-chat-history">', unsafe_allow_html=True)
             for message in st.session_state.chats[selected_agent]:
                 if message["role"] == "user":
                     st.chat_message("user").markdown(message["content"])
                 else:
-                    st.chat_message("assistant").markdown(message["content"])
+                    with st.chat_message("assistant"):
+                        st.text(message["content"])
+            st.markdown('</div>', unsafe_allow_html=True)
         
         # Chat input
         user_input = st.chat_input(f"Ask {selected_agent} a question...")
