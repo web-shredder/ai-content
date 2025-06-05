@@ -98,6 +98,12 @@ st.markdown("""
         background-color: #F8D7DA;
         color: #721C24;
     }
+
+    /* Content preview container */
+    .content-preview {
+        max-width: 50rem;
+        margin: 0 auto;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -609,45 +615,49 @@ def display_generated_content(results, model, api_key):
         if results.get('comments'):
             st.info(f"💭 Editor's Note: {results['comments']}")
 
-    # Content preview
-    with st.expander(" View Full Content", expanded=True):
-        st.markdown(results['final_content'])
+    # Content preview and downloads
+    with st.container():
+        st.markdown('<div class="content-preview">', unsafe_allow_html=True)
 
-    # Download options
-    st.markdown("### Download Content")
-    col1, col2, col3, col4, col5 = st.columns(5)
+        with st.expander(" View Full Content", expanded=True):
+            st.markdown(results['final_content'])
 
-    with col1:
-        create_download_button(
-            results['final_content'],
-            f"{results['final_title'].replace(' ', '_')}.md",
-            "Markdown",
-            "md"
-        )
+        st.markdown("### Download Content")
+        col1, col2, col3, col4, col5 = st.columns(5)
 
-    with col2:
-        create_download_button(
-            results['final_content'],
-            f"{results['final_title'].replace(' ', '_')}.html",
-            "HTML",
-            "html"
-        )
+        with col1:
+            create_download_button(
+                results['final_content'],
+                f"{results['final_title'].replace(' ', '_')}.md",
+                "Markdown",
+                "md"
+            )
 
-    with col3:
-        # Note: DOCX requires python-docx - simplified for demo
-        st.button("Word (.docx)", disabled=True, help="Coming soon")
+        with col2:
+            create_download_button(
+                results['final_content'],
+                f"{results['final_title'].replace(' ', '_')}.html",
+                "HTML",
+                "html"
+            )
 
-    with col4:
-        # Note: PDF requires additional libraries - simplified for demo
-        st.button("PDF", disabled=True, help="Coming soon")
+        with col3:
+            # Note: DOCX requires python-docx - simplified for demo
+            st.button("Word (.docx)", disabled=True, help="Coming soon")
 
-    with col5:
-        create_download_button(
-            results,
-            f"{results['final_title'].replace(' ', '_')}.json",
-            "JSON",
-            "json"
-        )
+        with col4:
+            # Note: PDF requires additional libraries - simplified for demo
+            st.button("PDF", disabled=True, help="Coming soon")
+
+        with col5:
+            create_download_button(
+                results,
+                f"{results['final_title'].replace(' ', '_')}.json",
+                "JSON",
+                "json"
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # Revision section
     st.markdown("###Request Revisions")
