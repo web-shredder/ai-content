@@ -364,12 +364,18 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
             {"role": "user", "content": f"{context}\n\n{prompt}"}
         ]
         
-        response = openai.ChatCompletion.create(
-            model=MODEL_MAP[model],
-            messages=messages,
-            temperature=0.7,
-            max_tokens=10000
-        )
+        params = {
+            "model": MODEL_MAP[model],
+            "messages": messages,
+            "temperature": 0.7,
+        }
+
+        if MODEL_MAP[model].startswith("o3"):
+            params["max_completion_tokens"] = 10000
+        else:
+            params["max_tokens"] = 10000
+
+        response = openai.ChatCompletion.create(**params)
         
         return response.choices[0].message.content
     except Exception as e:
