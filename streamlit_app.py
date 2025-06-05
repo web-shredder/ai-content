@@ -8,6 +8,12 @@ from docx import Document
 import markdown
 import base64
 import re
+import networkx as nx
+from pyvis.network import Network
+import streamlit.components.v1 as components
+import hashlib
+import random
+import math
 
 # Page configuration
 st.set_page_config(
@@ -105,6 +111,16 @@ st.markdown("""
     .content-preview {
         max-width: 50rem;
         margin: 0 auto;
+    }
+
+    .query-card {
+        background-color: #FFFFFF;
+        border-radius: 0.75rem;
+        padding: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-width: 8rem;
+        word-wrap: break-word;
+        font-size: 0.75rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -409,6 +425,86 @@ def parse_queries(text: str) -> list[str]:
                 queries.append(query)
 
     return queries
+
+def pseudo_embedding(text: str, dim: int = 8) -> list[float]:
+    """Deterministic pseudo embedding based on text hash."""
+    seed = int(hashlib.md5(text.encode()).hexdigest(), 16) % (2**32)
+    rng = random.Random(seed)
+    return [rng.random() for _ in range(dim)]
+
+
+def cosine_sim(v1: list[float], v2: list[float]) -> float:
+    """Compute cosine similarity between two vectors."""
+    dot = sum(a * b for a, b in zip(v1, v2))
+    norm1 = math.sqrt(sum(a * a for a in v1))
+    norm2 = math.sqrt(sum(b * b for b in v2))
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+    return dot / (norm1 * norm2)
+
+
+def expand_query(query: str, root: str) -> list[str]:
+    """Create variations of a query for fan-out."""
+    templates = [
+        f"What is {query}?",
+        f"How does {query} compare to {root}?",
+        f"{query} best practices",
+        f"Examples of {query}",
+        f"Benefits of {query}",
+        f"{query} vs alternatives",
+    ]
+    return templates
+
+
+def build_query_graph(title: str, base_queries: list[str], min_queries: int = 30, levels: int = 3):
+    """Build query fan-out graph with pseudo-embedding similarities."""
+    G = nx.DiGraph()
+    node_data: dict[str, dict] = {}
+    root_vec = pseudo_embedding(title)
+    G.add_node("n0", label=title)
+    node_data["n0"] = {"text": title, "vector": root_vec, "similarity": 1.0}
+
+    node_id = 1
+    parents = ["n0"]
+    queries_added = 0
+
+    # First level from provided queries
+    for q in base_queries:
+        nid = f"n{node_id}"
+        node_id += 1
+        vec = pseudo_embedding(q)
+        sim = cosine_sim(root_vec, vec)
+        G.add_node(nid, label=q)
+        G.add_edge("n0", nid)
+        node_data[nid] = {"text": q, "vector": vec, "similarity": sim}
+        parents.append(nid)
+        queries_added += 1
+
+    level = 1
+    while queries_added < min_queries and level < levels:
+        new_parents = []
+        for pid in parents:
+            base_text = node_data[pid]["text"]
+            for exp in expand_query(base_text, title):
+                if queries_added >= min_queries:
+                    break
+                nid = f"n{node_id}"
+                node_id += 1
+                vec = pseudo_embedding(exp)
+                sim = cosine_sim(root_vec, vec)
+                G.add_node(nid, label=exp)
+                G.add_edge(pid, nid)
+                node_data[nid] = {"text": exp, "vector": vec, "similarity": sim}
+                new_parents.append(nid)
+                queries_added += 1
+            if queries_added >= min_queries:
+                break
+        parents = new_parents
+        level += 1
+        if not parents:
+            break
+
+    return G, node_data
 
 
 
@@ -765,12 +861,54 @@ def display_generated_content(results, model, api_key, session_placeholder):
             for q in results['queries']:
                 st.markdown(f"- {q}")
 
-            dot = "digraph G {root [label=\"" + results['final_title'] + "\"];"
-            for i, q in enumerate(results['queries']):
-                node = f"q{i}"
-                dot += f"root -> {node}; {node} [label=\"{q}\"];"
-            dot += "}"
-            st.graphviz_chart(dot)
+            # Build interactive network graph with query fan-out
+            G, node_info = build_query_graph(
+                results['final_title'],
+                results['queries'],
+                min_queries=30,
+                levels=3
+            )
+
+            net = Network(height="450px", width="100%", directed=True, bgcolor="#f7f6ed")
+            for nid, data in node_info.items():
+                size = 20 + data['similarity'] * 30
+                title_html = f"<div class='query-card'><b>{data['text']}</b><br/>Cosine similarity: {data['similarity']:.2f}</div>"
+                net.add_node(nid, label=data['text'], title=title_html, shape='box', size=size)
+            for src, dst in G.edges():
+                sim = node_info[dst]['similarity']
+                length = 200 * (1 - sim)
+                net.add_edge(src, dst, value=sim, length=length)
+
+            net.show_buttons(filter_=['interaction'])
+            html = net.generate_html()
+
+            buttons = '''
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+            <div style="text-align:center;margin-bottom:10px;">
+              <button onclick="document.getElementById('mynetwork').requestFullscreen()">Full screen</button>
+              <button onclick="downloadPNG()">Download PNG</button>
+              <button onclick="downloadJSON()">Download JSON</button>
+            </div>
+            <script>
+            function downloadPNG(){
+              html2canvas(document.getElementById('mynetwork')).then(function(canvas){
+                var link=document.createElement('a');
+                link.href=canvas.toDataURL();
+                link.download='queries.png';
+                link.click();
+              });
+            }
+            function downloadJSON(){
+              var data={'nodes':network.body.data.nodes.get(),'edges':network.body.data.edges.get()};
+              var link=document.createElement('a');
+              link.href='data:text/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(data));
+              link.download='queries.json';
+              link.click();
+            }
+            </script>
+            '''
+            html = html.replace('</body>', buttons + '</body>')
+            components.html(html, height=500, scrolling=True)
 
         st.markdown("### Download Content")
         col1, col2, col3, col4, col5 = st.columns(5)
