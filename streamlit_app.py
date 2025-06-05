@@ -121,6 +121,8 @@ if "chats" not in st.session_state:
         "Head of Content": [],
         "Editor-in-Chief": []
     }
+if "last_model" not in st.session_state:
+    st.session_state.last_model = "4o"
 
 # Model mapping
 MODEL_MAP = {
@@ -412,7 +414,6 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     keywords = inputs["keywords"]
     compliance = inputs["compliance"]
     references = inputs["references"]
-    
     results = {}
     next_steps = {}
     
@@ -608,12 +609,15 @@ def apply_revision(content, feedback, model, api_key):
 
 def create_download_button(content, filename, button_text, file_format):
     """Create download button for different file formats"""
-    
+
     if file_format == "md":
-        b64 = base64.b64encode(content.encode()).decode()
-        href = f'<a href="data:text/markdown;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=content,
+            file_name=filename,
+            mime="text/markdown",
+        )
+
     elif file_format == "html":
         html_content = markdown.markdown(content)
         full_html = f"""
@@ -631,15 +635,21 @@ def create_download_button(content, filename, button_text, file_format):
         </body>
         </html>
         """
-        b64 = base64.b64encode(full_html.encode()).decode()
-        href = f'<a href="data:text/html;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=full_html,
+            file_name=filename,
+            mime="text/html",
+        )
+
     elif file_format == "json":
-        json_content = json.dumps(st.session_state.current_content, indent=2)
-        b64 = base64.b64encode(json_content.encode()).decode()
-        href = f'<a href="data:application/json;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
+        json_content = json.dumps(content, indent=2)
+        st.download_button(
+            label=button_text,
+            data=json_content,
+            file_name=filename,
+            mime="application/json",
+        )
 
 def display_generated_content(results, model, api_key):
     """Display generated content and enable revision workflow"""
@@ -674,7 +684,7 @@ def display_generated_content(results, model, api_key):
 
         with st.expander(" View Full Content", expanded=True):
             st.markdown(results['final_content'])
-
+            
         if results.get('queries'):
             st.markdown("### Suggested Search Queries")
             for q in results['queries']:
@@ -790,9 +800,51 @@ def main():
 
         # Container to display pipeline status messages
         status_container = st.container()
+
+        chat_box = st.expander("💬 Chat with AI Agents", expanded=True)
+
+        with chat_box:
+            if not api_key:
+                st.warning("Please enter your OpenAI API key to use agent chat.")
+            elif not st.session_state.current_content:
+                st.info("Generate content first to chat with the AI agents about it.")
+            else:
+                selected_agent = st.selectbox(
+                    "Select an agent to chat with:",
+                    ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"],
+                    key="chat_agent_select"
+                )
+
+                chat_container = st.container()
+                with chat_container:
+                    for message in st.session_state.chats[selected_agent]:
+                        if message["role"] == "user":
+                            st.chat_message("user").markdown(message["content"])
+                        else:
+                            st.chat_message("assistant").markdown(message["content"])
+
+                user_input = st.chat_input(f"Ask {selected_agent} a question...", key="sidebar_chat_input")
+
+                if user_input:
+                    st.session_state.chats[selected_agent].append({"role": "user", "content": user_input})
+                    with st.spinner(f"{selected_agent} is thinking..."):
+                        context = f"""
+                        Current content being discussed:
+                        Title: {st.session_state.current_content.get('final_title', 'N/A')}
+                        Score: {st.session_state.current_content.get('score', 'N/A')}
+
+                        Content preview:
+                        {st.session_state.current_content.get('final_content', '')[:500]}...
+                        """
+                        response = call_agent(selected_agent, user_input, st.session_state.last_model, api_key, context)
+
+                        if response:
+                            st.session_state.chats[selected_agent].append({"role": "assistant", "content": response})
+                            st.experimental_rerun()
     
     # Main content area
-    tab1, tab2, tab3, tab4 = st.tabs(["Create Content", "Talk with the team", "Version History", "Help"])
+    tab1, tab2, tab3 = st.tabs(["Create Content", "Version History", "Help"])
+
     
     with tab1:
         if not api_key:
@@ -832,6 +884,7 @@ def main():
                     ["4.1", "4o", "o3"],
                     index=1
                 )
+                st.session_state.last_model = model
                 
                 keywords = st.text_input(
                     "SEO Keywords (comma-separated)",
@@ -890,22 +943,21 @@ def main():
             
             # Run the pipeline
             results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
-            
+
             if results:
                 # Store in session state
-                st.session_state.current_content = results
+                st.session_state.current_content = results.copy()
                 st.session_state.history.append({
                     "version": len(st.session_state.history) + 1,
                     "timestamp": datetime.now().isoformat(),
                     "inputs": inputs,
-                    "results": results
+                    "results": st.session_state.current_content.copy()
                 })
                 
                 display_generated_content(results, model, api_key)
         elif st.session_state.current_content:
             display_generated_content(st.session_state.current_content, model, api_key)
     
-    with tab2:
         if not api_key:
             st.warning("Please enter your OpenAI API key to use agent chat.")
             return
@@ -964,8 +1016,8 @@ def main():
                         "content": response
                     })
                     st.experimental_rerun()
-    
-    with tab3:
+
+    with tab2:
         st.markdown("### Content History")
         
         if not st.session_state.history:
@@ -996,12 +1048,24 @@ def main():
                     if 'strategy' in version['results']:
                         st.markdown("**Strategist Output:**")
                         st.text(version['results']['strategy'])
-                    
+
+                    if 'draft' in version['results']:
+                        st.markdown("**Draft Content:**")
+                        st.text(version['results']['draft'])
+
+                    if 'seo_content' in version['results']:
+                        st.markdown("**SEO Optimized Content:**")
+                        st.text(version['results']['seo_content'])
+
+                    if 'polished' in version['results']:
+                        st.markdown("**Refined Content:**")
+                        st.text(version['results']['polished'])
+
                     if 'editor_review' in version['results']:
                         st.markdown("**Editor Review:**")
                         st.text(version['results']['editor_review'])
     
-    with tab4:
+    with tab3:
         st.markdown("""
         ### Getting Started
         
