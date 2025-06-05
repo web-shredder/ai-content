@@ -11,7 +11,7 @@ import base64
 # Page configuration
 st.set_page_config(
     page_title="Momentic AI Content Team",
-    page_icon="✨",
+    page_icon="https://cdn.prod.website-files.com/6213ddd7bd3eb80dfdbf1d95/667f2c081ec54c1767cb4265_momentic-favicon-32.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -21,22 +21,21 @@ st.markdown("""
 <style>
     /* Main theme colors */
     .stApp {
-        background-color: #FDFDFB;
+        background-color: #f7f6ed;
     }
     
     /* Rounded containers */
     .stForm, .stExpander {
         background-color: #FFFFFF;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-radius: 0.75rem;
+        padding: 1.25rem 2.25rem;
     }
     
     /* Green accent for buttons */
     .stButton > button {
-        background-color: #2ECC71;
-        color: white;
-        border-radius: 8px;
+        background-color: #18ff4e;
+        color: #141517;
+        border-radius: 1.25rem;
         border: none;
         padding: 0.5rem 1rem;
         font-weight: 500;
@@ -44,13 +43,13 @@ st.markdown("""
     }
     
     .stButton > button:hover {
-        background-color: #27AE60;
+        opacity: 0.7;
         box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
     }
     
     /* Headers styling */
     h1, h2, h3 {
-        color: #000000;
+        color: #141517;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     
@@ -58,31 +57,31 @@ st.markdown("""
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea,
     .stSelectbox > div > div > select {
-        border-radius: 8px;
-        border: 1px solid #E0E0E0;
+        border-radius: 1.25rem;
+        border: 1px solid #141517;
     }
     
     /* Status messages */
     .status-message {
-        padding: 10px;
-        border-radius: 8px;
-        margin: 5px 0;
-        background-color: #F8F9FA;
-        border-left: 4px solid #2ECC71;
+        padding: 1.25rem 2.25rem;
+        border-radius: 0.75rem;
+        margin: 0.5rem 0;
+        background-color: #f7f6ed;
+        border-left: 4px solid #c9ff18;
     }
     
     /* Progress bar customization */
     .stProgress > div > div > div > div {
-        background-color: #2ECC71;
+        background-color: #f7f6ed;
     }
     
     /* Score badge */
     .score-badge {
         display: inline-block;
-        padding: 8px 16px;
-        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        border-radius: 1.25rem;
         font-weight: bold;
-        margin: 10px 0;
+        margin: 1rem 0;
     }
     
     .score-high {
@@ -118,7 +117,6 @@ if "chats" not in st.session_state:
 
 # Model mapping
 MODEL_MAP = {
-    "GPT-4.0": "gpt-4",
     "GPT-4.1": "gpt-4.1-2025-04-14",
     "4o": "gpt-4o-2024-08-06",
     "o3": "o3-2025-04-16"
@@ -586,22 +584,22 @@ def create_download_button(content, filename, button_text, file_format):
 
 # Main app
 def main():
-    st.title("✨ Momentic AI Content Team")
-    st.markdown("### Your virtual team of AI content specialists")
+    st.title("Momentic AI Content Team")
+    st.markdown("Your virtual team of AI content specialists")
     
     # Sidebar for API key
     with st.sidebar:
-        st.markdown("### 🔑 Configuration")
+        st.markdown("###Configuration")
         api_key = st.text_input("OpenAI API Key", type="password", help="Your API key is not stored")
         
         if st.session_state.current_content:
-            st.markdown("### 📊 Current Session")
+            st.markdown("###Current Session")
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
             st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
     
     # Main content area
-    tab1, tab2, tab3, tab4 = st.tabs(["📝 Create Content", "💬 Chat with Agents", "📚 Version History", "ℹ️ Help"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Create Content", "Chat with Agents", "Version History", "Help"])
     
     with tab1:
         if not api_key:
@@ -638,7 +636,7 @@ def main():
             with col2:
                 model = st.selectbox(
                     "AI Model",
-                    ["GPT-3.5 Turbo", "GPT-4.0", "GPT-4.1", "GPT-4.5"],
+                    ["4.1", "4o", "o3"],
                     index=1
                 )
                 
@@ -669,7 +667,7 @@ def main():
                 type=['txt', 'pdf', 'docx', 'md']
             )
             
-            submitted = st.form_submit_button("🚀 Generate Content", use_container_width=True)
+            submitted = st.form_submit_button("Get started, team!", use_container_width=True)
         
         # Process form submission
         if submitted and topic:
@@ -712,7 +710,7 @@ def main():
                 
                 # Display results
                 st.markdown("---")
-                st.markdown("## 📄 Generated Content")
+                st.markdown("## Generated Content")
                 
                 # Title
                 st.markdown(f"### {results['final_title']}")
@@ -728,20 +726,20 @@ def main():
                     )
                     
                     if results['approval'] == "Approved":
-                        st.success(f"✅ {results['approval']}")
+                        st.success(f" {results['approval']}")
                     else:
-                        st.warning(f"⚠️ {results['approval']}")
+                        st.warning(f" {results['approval']}")
                 
                 with col2:
                     if results.get('comments'):
                         st.info(f"💭 Editor's Note: {results['comments']}")
                 
                 # Content preview
-                with st.expander("📖 View Full Content", expanded=True):
+                with st.expander(" View Full Content", expanded=True):
                     st.markdown(results['final_content'])
                 
                 # Download options
-                st.markdown("### 💾 Download Content")
+                st.markdown("### Download Content")
                 col1, col2, col3, col4, col5 = st.columns(5)
                 
                 with col1:
@@ -762,11 +760,11 @@ def main():
                 
                 with col3:
                     # Note: DOCX requires python-docx - simplified for demo
-                    st.button("📥 Word (.docx)", disabled=True, help="Coming soon")
+                    st.button("Word (.docx)", disabled=True, help="Coming soon")
                 
                 with col4:
                     # Note: PDF requires additional libraries - simplified for demo
-                    st.button("📥 PDF", disabled=True, help="Coming soon")
+                    st.button("PDF", disabled=True, help="Coming soon")
                 
                 with col5:
                     create_download_button(
@@ -777,7 +775,7 @@ def main():
                     )
                 
                 # Revision section
-                st.markdown("### 🔄 Request Revisions")
+                st.markdown("###Request Revisions")
                 with st.form("revision_form"):
                     feedback = st.text_area(
                         "Describe the changes you'd like",
@@ -808,7 +806,7 @@ def main():
                                         "results": st.session_state.current_content.copy()
                                     })
                                     
-                                    st.success("✅ Revisions applied successfully!")
+                                    st.success("Revisions applied successfully!")
                                     st.experimental_rerun()
     
     with tab2:
@@ -872,7 +870,7 @@ def main():
                     st.experimental_rerun()
     
     with tab3:
-        st.markdown("### 📚 Content Version History")
+        st.markdown("### Content History")
         
         if not st.session_state.history:
             st.info("No content history yet. Generate some content to see version history.")
@@ -909,14 +907,14 @@ def main():
     
     with tab4:
         st.markdown("""
-        ### 🚀 Getting Started
+        ###Getting Started
         
         1. **Enter your OpenAI API Key** in the sidebar (it's not stored)
         2. **Fill out the content request form** with your requirements
         3. **Select an AI model** (GPT-4 recommended for best quality)
         4. **Click Generate Content** and watch your AI team work!
         
-        ### 🤖 The AI Team
+        ###The AI Team
         
         Your content goes through 5 specialist AI agents:
         
@@ -926,7 +924,7 @@ def main():
         4. **Head of Content** - Ensures brand alignment
         5. **Editor-in-Chief** - Final review and approval
         
-        ### 💡 Tips for Best Results
+        ###Tips for Best Results
         
         - Be specific with your topic and key messages
         - Include relevant keywords for SEO optimization
@@ -934,13 +932,6 @@ def main():
         - Use the revision feature to fine-tune the output
         - Chat with individual agents for detailed insights
         
-        ### 🎨 Momentic Brand Guidelines
-        
-        This app follows Momentic's design principles:
-        - Clean, professional interface
-        - Green accent color (#2ECC71) for CTAs
-        - High contrast for readability
-        - Rounded, modern UI components
         """)
 
 if __name__ == "__main__":
