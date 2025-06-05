@@ -7,6 +7,7 @@ import time
 from docx import Document
 import markdown
 import base64
+import re
 
 # Page configuration
 st.set_page_config(
@@ -349,6 +350,20 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
         st.error(f"Error calling {agent_name}: {str(e)}")
         return None
 
+def parse_queries(text):
+    """Extract list of queries from SEO Specialist output"""
+    queries = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # Lines starting with bullets or numbers likely represent queries
+        if re.match(r"^[-*\d+.]+\s", line):
+            query = re.sub(r"^[-*\d+.]+\s*", "", line)
+            if query:
+                queries.append(query)
+    return queries
+
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
     """Run the full 5-agent content creation pipeline"""
     
@@ -424,8 +439,9 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     seo_content = call_agent("SEO Specialist", seo_prompt, model, api_key)
     if not seo_content:
         return None
-    
+
     results["seo_content"] = seo_content
+    results["queries"] = parse_queries(seo_content)
     progress_bar.progress(0.6)
     
     # Stage 4: Head of Content
@@ -612,6 +628,18 @@ def display_generated_content(results, model, api_key):
     # Content preview
     with st.expander(" View Full Content", expanded=True):
         st.markdown(results['final_content'])
+
+    if results.get('queries'):
+        st.markdown("### Suggested Search Queries")
+        for q in results['queries']:
+            st.markdown(f"- {q}")
+
+        dot = "digraph G {root [label=\"" + results['final_title'] + "\"];"
+        for i, q in enumerate(results['queries']):
+            node = f"q{i}"
+            dot += f"root -> {node}; {node} [label=\"{q}\"];"
+        dot += "}"
+        st.graphviz_chart(dot)
 
     # Download options
     st.markdown("### Download Content")
