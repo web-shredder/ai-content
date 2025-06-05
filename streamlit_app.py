@@ -693,15 +693,55 @@ def main():
     with st.sidebar:
         st.markdown("###Configuration")
         api_key = st.text_input("OpenAI API Key", type="password", help="Your API key is not stored")
-        
+
         if st.session_state.current_content:
             st.markdown("###Current Session")
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
             st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
+
+        chat_box = st.expander("\ud83d\udcac Chat with AI Agents")
+        with chat_box:
+            if not api_key:
+                st.warning("Please enter your OpenAI API key to use agent chat.")
+            elif not st.session_state.current_content:
+                st.info("Generate content first to chat with the AI agents about it.")
+            else:
+                selected_agent = st.selectbox(
+                    "Select an agent to chat with:",
+                    ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"],
+                    key="chat_agent_select"
+                )
+
+                chat_container = st.container()
+                with chat_container:
+                    for message in st.session_state.chats[selected_agent]:
+                        if message["role"] == "user":
+                            st.chat_message("user").markdown(message["content"])
+                        else:
+                            st.chat_message("assistant").markdown(message["content"])
+
+                user_input = st.chat_input(f"Ask {selected_agent} a question...", key="sidebar_chat_input")
+
+                if user_input:
+                    st.session_state.chats[selected_agent].append({"role": "user", "content": user_input})
+                    with st.spinner(f"{selected_agent} is thinking..."):
+                        context = f"""
+                        Current content being discussed:
+                        Title: {st.session_state.current_content.get('final_title', 'N/A')}
+                        Score: {st.session_state.current_content.get('score', 'N/A')}
+
+                        Content preview:
+                        {st.session_state.current_content.get('final_content', '')[:500]}...
+                        """
+                        response = call_agent(selected_agent, user_input, model, api_key, context)
+
+                        if response:
+                            st.session_state.chats[selected_agent].append({"role": "assistant", "content": response})
+                            st.experimental_rerun()
     
     # Main content area
-    tab1, tab2, tab3, tab4 = st.tabs(["Create Content", "Chat with Agents", "Version History", "Help"])
+    tab1, tab2, tab3 = st.tabs(["Create Content", "Version History", "Help"])
     
     with tab1:
         if not api_key:
@@ -814,67 +854,8 @@ def main():
         elif st.session_state.current_content:
             display_generated_content(st.session_state.current_content, model, api_key)
     
-    with tab2:
-        if not api_key:
-            st.warning("Please enter your OpenAI API key to use agent chat.")
-            return
-            
-        st.markdown("### 💬 Chat with AI Agents")
-        
-        if not st.session_state.current_content:
-            st.info("Generate content first to chat with the AI agents about it.")
-            return
-        
-        # Agent selector
-        selected_agent = st.selectbox(
-            "Select an agent to chat with:",
-            ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"]
-        )
-        
-        # Chat interface
-        chat_container = st.container()
-        
-        # Display chat history
-        with chat_container:
-            for message in st.session_state.chats[selected_agent]:
-                if message["role"] == "user":
-                    st.chat_message("user").markdown(message["content"])
-                else:
-                    st.chat_message("assistant").markdown(message["content"])
-        
-        # Chat input
-        user_input = st.chat_input(f"Ask {selected_agent} a question...")
-        
-        if user_input:
-            # Add user message to history
-            st.session_state.chats[selected_agent].append({
-                "role": "user",
-                "content": user_input
-            })
-            
-            # Get agent response
-            with st.spinner(f"{selected_agent} is thinking..."):
-                # Build context
-                context = f"""
-                Current content being discussed:
-                Title: {st.session_state.current_content.get('final_title', 'N/A')}
-                Score: {st.session_state.current_content.get('score', 'N/A')}
-                
-                Content preview:
-                {st.session_state.current_content.get('final_content', '')[:500]}...
-                """
-                
-                # Call agent
-                response = call_agent(selected_agent, user_input, model, api_key, context)
-                
-                if response:
-                    st.session_state.chats[selected_agent].append({
-                        "role": "assistant",
-                        "content": response
-                    })
-                    st.experimental_rerun()
     
-    with tab3:
+    with tab2:
         st.markdown("### Content History")
         
         if not st.session_state.history:
@@ -910,7 +891,7 @@ def main():
                         st.markdown("**Editor Review:**")
                         st.text(version['results']['editor_review'])
     
-    with tab4:
+    with tab3:
         st.markdown("""
         ###Getting Started
         
