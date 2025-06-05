@@ -748,7 +748,7 @@ def display_generated_content(results, model, api_key):
                         st.session_state.current_content['approval'] = revision_result['approval']
                         st.session_state.current_content['score'] = revision_result['score']
 
-                        # Add to history
+        chat_box = st.expander("💬 Chat with AI Agents", expanded=True)
                         st.session_state.history.append({
                             "version": len(st.session_state.history) + 1,
                             "timestamp": datetime.now().isoformat(),
