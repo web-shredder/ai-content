@@ -159,7 +159,9 @@ AGENT_PROMPTS = {
        - Trust-building credibility markers
        - Common pitfalls to avoid (buzzwords, jargon, condescension)
     
-    Remember: You're setting up the team for success. Be specific, practical, and always keep the reader's needs at the center.""",
+    Remember: You're setting up the team for success. Be specific, practical, and always keep the reader's needs at the center.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
     
     "Specialist Writer": """You are Momentic's Senior Technical Content Writer, specializing in making complex technical concepts accessible without dumbing them down. You have a background in software development and understand that great technical writing respects the reader's intelligence while ensuring clarity.
 
@@ -186,7 +188,9 @@ AGENT_PROMPTS = {
     - Use "you" to speak directly to the reader
     - Avoid buzzwords and corporate jargon entirely
     
-    Your goal: Create content that a senior developer would actually bookmark and share with their team.""",
+    Your goal: Create content that a senior developer would actually bookmark and share with their team.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
         
     "SEO Specialist": """You are Aurora-SEO at Momentic, a future-proof search strategist and relevance engineer specializing in driving organic impact across classic SERPs and AI surfaces (AI Overviews, AI Mode, ChatGPT, Perplexity).
     
@@ -223,7 +227,9 @@ AGENT_PROMPTS = {
     - Flag uncertainty rather than fabricate metrics
     - Include measurement hooks for citation frequency and answer prominence
     
-    Never sacrifice readability for traditional SEO metrics. The best content serves users first and search engines second.""",
+    Never sacrifice readability for traditional SEO metrics. The best content serves users first and search engines second.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
     
     "Head of Content": """You are Momentic's Head of Content with 15+ years in B2B tech content leadership. You've built content programs that establish market authority while driving real business results. You review content through both strategic and practical lenses.
 
@@ -260,7 +266,9 @@ AGENT_PROMPTS = {
     4) Add CTAs that feel genuinely helpful, never pushy
     5) Polish for memorability - what's the one thing readers will remember?
     
-    Your goal: Elevate good content to exceptional. Make it something you'd be proud to put your name on.""",
+    Your goal: Elevate good content to exceptional. Make it something you'd be proud to put your name on.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
     
     "Editor-in-Chief": """You are Momentic's Editor-in-Chief, the final guardian of content quality and brand reputation. You've edited thousands of technical articles and have developed an instinct for what truly serves technical audiences.
 
@@ -314,7 +322,9 @@ AGENT_PROMPTS = {
     FINAL_TITLE: [The polished, publication-ready title]
     FINAL_SLUG: [SEO-optimized URL slug]
     
-    Editor's instinct: Would YOU save this article? Would you share it with a colleague?"""
+    Editor's instinct: Would YOU save this article? Would you share it with a colleague?
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions."""
 }
 
 def extract_text_from_file(uploaded_file):
@@ -355,6 +365,18 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
         st.error(f"Error calling {agent_name}: {str(e)}")
         return None
 
+def parse_next_steps(output):
+    """Split agent output into main content and bullet list of next steps"""
+    if "Recommended Next Steps:" in output:
+        content, steps_part = output.split("Recommended Next Steps:", 1)
+        steps = [
+            line.strip("- ").strip()
+            for line in steps_part.strip().splitlines()
+            if line.strip().startswith("-")
+        ]
+        return content.strip(), steps
+    return output.strip(), []
+
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
     """Run the full 5-agent content creation pipeline
 
@@ -376,6 +398,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     references = inputs["references"]
     
     results = {}
+    next_steps = {}
     
     # Stage 1: Strategist
     start_time = datetime.now()
@@ -393,11 +416,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Create a comprehensive content strategy with outline.
     """
     
-    strategy = call_agent("Strategist", strategist_prompt, model, api_key)
-    if not strategy:
+    strategy_raw = call_agent("Strategist", strategist_prompt, model, api_key)
+    if not strategy_raw:
         return None
-    
+    strategy, steps = parse_next_steps(strategy_raw)
     results["strategy"] = strategy
+    next_steps["Strategist"] = steps
     progress_bar.progress(0.2)
     
     # Stage 2: Specialist Writer
@@ -414,11 +438,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Voice: {brand_voice or 'Professional, data-driven, friendly'}
     """
     
-    draft = call_agent("Specialist Writer", writer_prompt, model, api_key)
-    if not draft:
+    draft_raw = call_agent("Specialist Writer", writer_prompt, model, api_key)
+    if not draft_raw:
         return None
-    
+    draft, steps = parse_next_steps(draft_raw)
     results["draft"] = draft
+    next_steps["Specialist Writer"] = steps
     progress_bar.progress(0.4)
     
     # Stage 3: SEO Specialist
@@ -433,11 +458,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Return the full content with SEO improvements applied.
     """
     
-    seo_content = call_agent("SEO Specialist", seo_prompt, model, api_key)
-    if not seo_content:
+    seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
+    if not seo_raw:
         return None
-    
+    seo_content, steps = parse_next_steps(seo_raw)
     results["seo_content"] = seo_content
+    next_steps["SEO Specialist"] = steps
     progress_bar.progress(0.6)
     
     # Stage 4: Head of Content
@@ -454,11 +480,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Return the full refined content.
     """
     
-    polished = call_agent("Head of Content", head_prompt, model, api_key)
-    if not polished:
+    polished_raw = call_agent("Head of Content", head_prompt, model, api_key)
+    if not polished_raw:
         return None
-    
+    polished, steps = parse_next_steps(polished_raw)
     results["polished"] = polished
+    next_steps["Head of Content"] = steps
     progress_bar.progress(0.8)
     
     # Stage 5: Editor-in-Chief
@@ -473,11 +500,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     {polished}
     """
     
-    editor_review = call_agent("Editor-in-Chief", editor_prompt, model, api_key)
-    if not editor_review:
+    editor_raw = call_agent("Editor-in-Chief", editor_prompt, model, api_key)
+    if not editor_raw:
         return None
-    
+    editor_review, steps = parse_next_steps(editor_raw)
     results["editor_review"] = editor_review
+    next_steps["Editor-in-Chief"] = steps
     progress_bar.progress(1.0)
     
     # Parse editor review
@@ -503,6 +531,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         results["comments"] = comments
         results["final_title"] = final_title
         results["final_content"] = polished
+        results["next_steps"] = next_steps
         
     except:
         results["approval"] = "Approved"
@@ -510,6 +539,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         results["comments"] = "Content meets quality standards."
         results["final_title"] = topic
         results["final_content"] = polished
+        results["next_steps"] = next_steps
     
     status_container.success(f"✨ {datetime.now():%H:%M:%S} - Content generation complete!")
     
@@ -666,19 +696,32 @@ def display_generated_content(results, model, api_key):
         st.markdown("</div>", unsafe_allow_html=True)
 
     # Revision section
-    st.markdown("###Request Revisions")
+    st.markdown("### Request Updates")
     with st.form("revision_form"):
-        feedback = st.text_area(
-            "Describe the changes you'd like",
-            placeholder="e.g., Make the introduction shorter and add a stronger call-to-action at the end...",
+        selected_steps = []
+        st.markdown("#### Recommended Next Steps")
+        if results.get('next_steps'):
+            for agent, steps in results['next_steps'].items():
+                if steps:
+                    st.markdown(f"**{agent}**")
+                    for i, step in enumerate(steps):
+                        if st.checkbox(step, key=f"{agent}_{i}"):
+                            selected_steps.append(step)
+
+        feedback_extra = st.text_area(
+            "Additional instructions",
+            placeholder="Add any extra notes...",
         )
 
-        if st.form_submit_button("Apply Revisions"):
-            if feedback:
+        if st.form_submit_button("Request updates"):
+            compiled = "\n".join(selected_steps)
+            if feedback_extra:
+                compiled = compiled + ("\n" if compiled else "") + feedback_extra
+            if compiled:
                 with st.spinner("Applying your revisions..."):
                     revision_result = apply_revision(
                         results['final_content'],
-                        feedback,
+                        compiled,
                         model,
                         api_key
                     )
@@ -693,7 +736,7 @@ def display_generated_content(results, model, api_key):
                         st.session_state.history.append({
                             "version": len(st.session_state.history) + 1,
                             "timestamp": datetime.now().isoformat(),
-                            "revision_feedback": feedback,
+                            "revision_feedback": compiled,
                             "results": st.session_state.current_content.copy()
                         })
 
