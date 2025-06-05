@@ -486,6 +486,18 @@ def cosine_sim(v1: list[float], v2: list[float]) -> float:
     return dot / (norm1 * norm2)
 
 
+def classify_query(query: str) -> str:
+    """Heuristically classify a query type."""
+    q = query.lower()
+    if q.startswith("what is") or "definition" in q or q.startswith("define"):
+        return "Definition"
+    if " vs " in q or "compare" in q:
+        return "Comparison"
+    if q.startswith("how") or " guide" in q or "best" in q or "tips" in q or "practices" in q:
+        return "How-To"
+    return "Informational"
+
+
 def expand_query(query: str, root: str) -> list[str]:
     """Create variations of a query for fan-out."""
     templates = [
@@ -683,7 +695,8 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         {strategy}
 
         Provide up to 3 high-potential search query fanouts.
-        Return them as bullet points under the heading "Search Queries:" with brief notes on how each supports the overall plan.
+        Categorize each query by type such as Definition, How-To or Comparison.
+        Return them as bullet points under the heading "Search Queries:" using the format "<Type>: <Search query> - <brief note>".
         """
     else:
         seo_prompt = f"""
@@ -695,6 +708,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Return the full content with SEO improvements applied.
 
         After the final content, list up to 3 related search queries as bullet points under the heading "Search Queries:".
+        Use the format "<Type>: <Search query>" for each bullet so the type of fanout is clear.
         """
 
     seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
@@ -907,6 +921,14 @@ def create_download_button(content, filename, button_text, file_format):
             mime="application/json",
         )
 
+    elif file_format == "csv":
+        st.download_button(
+            label=button_text,
+            data=content,
+            file_name=filename,
+            mime="text/csv",
+        )
+
 def display_generated_content(results, model, api_key, session_placeholder):
     """Display generated content and enable revision workflow
 
@@ -963,6 +985,24 @@ def display_generated_content(results, model, api_key, session_placeholder):
                 min_queries=30,
                 levels=3
             )
+
+            table_rows = []
+            for nid, data in node_info.items():
+                if nid == "n0":
+                    continue
+                q_text = data['text']
+                row_type = classify_query(q_text)
+                table_rows.append({
+                    "Type": row_type,
+                    "Query": q_text,
+                    "Similarity": round(data['similarity'], 2)
+                })
+
+            st.table(table_rows)
+            csv_content = "Type,Query,Similarity\n" + "\n".join(
+                f"{r['Type']},{r['Query']},{r['Similarity']}" for r in table_rows
+            )
+            results['queries_csv'] = csv_content
 
             net = Network(height="450px", width="100%", directed=True, bgcolor="#f7f6ed")
             for nid, data in node_info.items():
@@ -1027,7 +1067,7 @@ def display_generated_content(results, model, api_key, session_placeholder):
             components.html(html, height=500, scrolling=True)
 
         st.markdown("### Download Content")
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
 
         with col1:
             create_download_button(
@@ -1060,6 +1100,15 @@ def display_generated_content(results, model, api_key, session_placeholder):
                 "JSON",
                 "json"
             )
+
+        with col6:
+            if results.get('queries_csv'):
+                create_download_button(
+                    results['queries_csv'],
+                    f"{results['final_title'].replace(' ', '_')}_queries.csv",
+                    "Queries CSV",
+                    "csv"
+                )
 
         st.markdown("</div>", unsafe_allow_html=True)
 
