@@ -25,7 +25,7 @@ st.markdown("""
         background-color: #f7f6ed;
     }
     body {font-size:0.875rem!important;}
-    li {margin:0!important;}
+    p {margin-bottom:0!important;}
     
     /* Rounded containers */
     .stForm, .stExpander {
