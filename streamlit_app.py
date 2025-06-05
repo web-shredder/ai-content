@@ -706,7 +706,8 @@ def main():
     with tab1:
         if not api_key:
             st.warning("👈 Please enter your OpenAI API key in the sidebar to begin.")
-        else:
+
+        if api_key:
             # Content request form
             with st.form("content_request"):
                 st.markdown("### Content Request Form")
@@ -770,48 +771,48 @@ def main():
 
                 submitted = st.form_submit_button("Get started, team!", use_container_width=True)
         
-        # Process form submission
-        if submitted and topic:
-            # Process uploaded files
-            references = ""
-            if uploaded_files:
-                for file in uploaded_files:
-                    references += f"\n\n--- {file.name} ---\n"
-                    references += extract_text_from_file(file)
-            
-            # Prepare inputs
-            inputs = {
-                "content_type": content_type,
-                "topic": topic,
-                "audience": audience,
-                "length": length,
-                "key_messages": key_messages,
-                "brand_voice": brand_voice,
-                "keywords": keywords,
-                "compliance": compliance,
-                "references": references
-            }
-            
-            # Create containers for status and progress
-            status_container = st.empty()
-            progress_bar = st.progress(0)
-            
-            # Run the pipeline
-            results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
-            
-            if results:
-                # Store in session state
-                st.session_state.current_content = results
-                st.session_state.history.append({
-                    "version": len(st.session_state.history) + 1,
-                    "timestamp": datetime.now().isoformat(),
-                    "inputs": inputs,
-                    "results": results
-                })
-                
-                display_generated_content(results, model, api_key)
-        elif st.session_state.current_content:
-            display_generated_content(st.session_state.current_content, model, api_key)
+            # Process form submission
+            if submitted and topic:
+                # Process uploaded files
+                references = ""
+                if uploaded_files:
+                    for file in uploaded_files:
+                        references += f"\n\n--- {file.name} ---\n"
+                        references += extract_text_from_file(file)
+
+                # Prepare inputs
+                inputs = {
+                    "content_type": content_type,
+                    "topic": topic,
+                    "audience": audience,
+                    "length": length,
+                    "key_messages": key_messages,
+                    "brand_voice": brand_voice,
+                    "keywords": keywords,
+                    "compliance": compliance,
+                    "references": references
+                }
+
+                # Create containers for status and progress
+                status_container = st.empty()
+                progress_bar = st.progress(0)
+
+                # Run the pipeline
+                results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
+
+                if results:
+                    # Store in session state
+                    st.session_state.current_content = results
+                    st.session_state.history.append({
+                        "version": len(st.session_state.history) + 1,
+                        "timestamp": datetime.now().isoformat(),
+                        "inputs": inputs,
+                        "results": results
+                    })
+
+                    display_generated_content(results, model, api_key)
+            elif st.session_state.current_content:
+                display_generated_content(st.session_state.current_content, model, api_key)
     
     with tab2:
         if not api_key:
