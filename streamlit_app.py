@@ -379,7 +379,7 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
         params = {
             "model": MODEL_MAP[model],
             "messages": messages,
-            "temperature": 0.7,
+           # "temperature": 0.7,
         }
 
         if MODEL_MAP[model].startswith("o3"):
