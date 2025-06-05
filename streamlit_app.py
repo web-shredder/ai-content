@@ -404,10 +404,12 @@ def parse_queries(text: str) -> list[str]:
     return queries
 
 
+
 def refresh_current_session(placeholder):
     """Update the sidebar session info with agent statuses."""
     placeholder.empty()
     with placeholder.container():
+
         st.markdown("### Current Session")
         if st.session_state.get("current_content"):
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
@@ -424,6 +426,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     ----------
     status_container : st.container
         Sidebar container used to display stage status messages.
+
     session_placeholder : st.empty
         Sidebar placeholder showing current session details.
     """
@@ -444,12 +447,15 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     st.session_state.current_content = {}
     for agent in st.session_state.agent_status:
         st.session_state.agent_status[agent] = "Queued"
+
     refresh_current_session(session_placeholder)
     
     # Stage 1: Strategist
     start_time = datetime.now()
     st.session_state.agent_status["Strategist"] = "In progress"
+
     refresh_current_session(session_placeholder)
+
     status_container.info(f"🎯 {start_time:%H:%M:%S} - **Strategist** is planning content strategy...")
     
     strategist_prompt = f"""
@@ -473,6 +479,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     next_steps["Strategist"] = steps
     st.session_state.agent_status["Strategist"] = "Completed"
     refresh_current_session(session_placeholder)
+
     progress_bar.progress(0.2)
     
     # Stage 2: Specialist Writer
