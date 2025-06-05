@@ -39,7 +39,7 @@ st.markdown("""
         border-radius: 0.75rem;
         padding: 1.25rem 2.25rem;
     }
-    .query-card {max-width:25rem;}
+    .query-card {max-width:20rem;}
 
     /* Green accent for buttons */
     .stButton > button {
@@ -118,12 +118,22 @@ st.markdown("""
     .query-card {
         background-color: #FFFFFF;
         border-radius: 0.75rem;
-        padding: 0.5rem;
+        padding: 0.75rem 1rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        max-width: 8rem;
-        word-wrap: break-word;
+        max-width: 20rem;
+        overflow-wrap: break-word;
+        white-space: normal;
+        font-size: 0.85rem;
+    }
+    .query-text {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    .query-meta {
         font-size: 0.75rem;
-        
+        color: #555;
+    }
+
     /* Sidebar chat styling */
     .sidebar-chat-history {
         max-height: 15rem;
@@ -893,8 +903,19 @@ def display_generated_content(results, model, api_key, session_placeholder):
             net = Network(height="450px", width="100%", directed=True, bgcolor="#f7f6ed")
             for nid, data in node_info.items():
                 size = 20 + data['similarity'] * 30
-                title_html = f"<div class='query-card'><b>{data['text']}</b><br/>Cosine similarity: {data['similarity']:.2f}</div>"
-                net.add_node(nid, label=data['text'], title=title_html, shape='box', size=size)
+                title_html = (
+                    "<div class='query-card'>"
+                    f"<div class='query-text'>{data['text']}</div>"
+                    f"<div class='query-meta'>Cosine similarity: {data['similarity']:.2f}</div>"
+                    "</div>"
+                )
+                net.add_node(
+                    nid,
+                    label=data['text'],
+                    title=title_html,
+                    shape='box',
+                    size=size,
+                )
             for src, dst in G.edges():
                 sim = node_info[dst]['similarity']
                 length = 200 * (1 - sim)
