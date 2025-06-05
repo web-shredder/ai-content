@@ -682,7 +682,8 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Analyze search opportunities for the topic "{topic}" based on this strategy:
         {strategy}
 
-        Provide up to 3 high-potential query fanouts and brief notes on how they support the overall plan.
+        Provide up to 3 high-potential search query fanouts.
+        Return them as bullet points under the heading "Search Queries:" with brief notes on how each supports the overall plan.
         """
     else:
         seo_prompt = f"""
@@ -692,6 +693,8 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         {draft}
 
         Return the full content with SEO improvements applied.
+
+        After the final content, list up to 3 related search queries as bullet points under the heading "Search Queries:".
         """
 
     seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
