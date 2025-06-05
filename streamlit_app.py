@@ -440,9 +440,13 @@ def parse_queries(text: str) -> list[str]:
     capture = False
     for line in text.splitlines():
         lower = line.lower().strip()
-        if "query" in lower and ":" in lower:
-            capture = True
-            continue
+        if not capture:
+            if "query" in lower and (":" in lower or lower.startswith("#")):
+                capture = True
+                continue
+            if "search queries" in lower:
+                capture = True
+                continue
         if capture:
             if not line.strip():
                 break
