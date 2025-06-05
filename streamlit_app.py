@@ -437,14 +437,37 @@ def parse_queries(text: str) -> list[str]:
     queries: list[str] = []
     bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
 
+    capture = False
     for line in text.splitlines():
-        match = bullet_pattern.match(line.strip())
-        if match:
-            query = match.group(1).strip()
-            if query:
-                queries.append(query)
+        lower = line.lower().strip()
+        if not capture:
+            if "query" in lower and (":" in lower or lower.startswith("#")):
+                capture = True
+                continue
+            if "search queries" in lower:
+                capture = True
+                continue
+        if capture:
+            if not line.strip():
+                break
+            match = bullet_pattern.match(line)
+            if match:
+                query = match.group(1).strip()
+                if query:
+                    queries.append(query)
+            else:
+                # Stop if we reach a non-bullet line
+                break
 
-    return queries
+    seen = set()
+    unique = []
+    for q in queries:
+        qnorm = q.lower()
+        if qnorm not in seen:
+            unique.append(q)
+            seen.add(qnorm)
+
+    return unique
 
 def pseudo_embedding(text: str, dim: int = 8) -> list[float]:
     """Deterministic pseudo embedding based on text hash."""
@@ -898,7 +921,11 @@ def display_generated_content(results, model, api_key, session_placeholder):
     # Status and score
     col1, col2 = st.columns([1, 3])
     with col1:
-        score_value = int(results['score'].split('/')[0])
+        score_raw = results.get('score', 'N/A')
+        score_value = 0
+        match = re.search(r"(\d+)", str(score_raw))
+        if match:
+            score_value = int(match.group(1))
         score_class = "high" if score_value >= 8 else "medium" if score_value >= 6 else "low"
         st.markdown(
             f'<div class="score-badge score-{score_class}">Score: {results["score"]}</div>',
@@ -957,6 +984,16 @@ def display_generated_content(results, model, api_key, session_placeholder):
 
             net.show_buttons(filter_=['interaction'])
             html = net.generate_html()
+
+            custom_style = """
+            <style>
+            body {background-color: #f7f6ed; font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+            .query-card {background-color: #FFFFFF; border-radius: 0.75rem; padding: 0.5rem 0.75rem; font-size: 0.85rem;}
+            .query-text {font-weight: 600; margin-bottom: 0.25rem;}
+            .query-meta {font-size: 0.75rem; color: #555;}
+            </style>
+            """
+            html = html.replace('</head>', custom_style + '</head>')
 
             buttons = '''
             <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>

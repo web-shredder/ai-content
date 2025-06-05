@@ -12,6 +12,9 @@ A simple Streamlit app that shows how to build a chatbot using newer GPT-4 based
    $ pip install -r requirements.txt
    ```
 
+   If you encounter `ModuleNotFoundError: No module named 'networkx'`,
+   double-check that the requirements were installed successfully.
+
 2. Run the app
 
    ```
