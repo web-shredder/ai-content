@@ -379,7 +379,13 @@ def parse_next_steps(output):
     return output.strip(), []
 
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
-    """Run the full 5-agent content creation pipeline"""
+    """Run the full 5-agent content creation pipeline
+
+    Parameters
+    ----------
+    status_container : st.container
+        Sidebar container used to display stage status messages.
+    """
     
     # Extract inputs
     content_type = inputs["content_type"]
@@ -694,7 +700,7 @@ def display_generated_content(results, model, api_key):
         with col4:
             # Note: PDF requires additional libraries - simplified for demo
             st.button("PDF", disabled=True, help="Coming soon")
-
+            
         with col5:
             create_download_button(
                 results,
@@ -912,7 +918,7 @@ def main():
             
             # Run the pipeline
             results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
-            
+
             if results:
                 # Store in session state
                 st.session_state.current_content = results.copy()
@@ -927,8 +933,65 @@ def main():
         elif st.session_state.current_content:
             display_generated_content(st.session_state.current_content, model, api_key)
     
-    
-    with tab2:
+        if not api_key:
+            st.warning("Please enter your OpenAI API key to use agent chat.")
+            return
+            
+        st.markdown("### 💬 Talk with the team")
+        
+        if not st.session_state.current_content:
+            st.info("Generate content first to talk with the team about it.")
+            return
+        
+        # Agent selector
+        selected_agent = st.selectbox(
+            "Select an agent to chat with:",
+            ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"]
+        )
+        
+        # Chat interface
+        chat_container = st.container()
+        
+        # Display chat history
+        with chat_container:
+            for message in st.session_state.chats[selected_agent]:
+                if message["role"] == "user":
+                    st.chat_message("user").markdown(message["content"])
+                else:
+                    st.chat_message("assistant").markdown(message["content"])
+        
+        # Chat input
+        user_input = st.chat_input(f"Ask {selected_agent} a question...")
+        
+        if user_input:
+            # Add user message to history
+            st.session_state.chats[selected_agent].append({
+                "role": "user",
+                "content": user_input
+            })
+            
+            # Get agent response
+            with st.spinner(f"{selected_agent} is thinking..."):
+                # Build context
+                context = f"""
+                Current content being discussed:
+                Title: {st.session_state.current_content.get('final_title', 'N/A')}
+                Score: {st.session_state.current_content.get('score', 'N/A')}
+                
+                Content preview:
+                {st.session_state.current_content.get('final_content', '')[:500]}...
+                """
+                
+                # Call agent
+                response = call_agent(selected_agent, user_input, model, api_key, context)
+                
+                if response:
+                    st.session_state.chats[selected_agent].append({
+                        "role": "assistant",
+                        "content": response
+                    })
+                    st.experimental_rerun()
+
         st.markdown("### Content History")
         
         if not st.session_state.history:
@@ -1001,7 +1064,7 @@ def main():
         - Include relevant keywords for SEO optimization
         - Upload reference materials for more accurate content
         - Use the revision feature to fine-tune the output
-        - Chat with individual agents for detailed insights
+        - Talk with the team members for detailed insights
         
         """)
 
