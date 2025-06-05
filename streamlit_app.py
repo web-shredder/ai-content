@@ -72,7 +72,7 @@ st.markdown("""
     
     /* Progress bar customization */
     .stProgress > div > div > div > div {
-        background-color: #f7f6ed;
+        background-color: #18ff4e;
     }
     
     /* Score badge */
