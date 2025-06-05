@@ -6,7 +6,6 @@ import io
 import time
 from docx import Document
 import markdown
-import base64
 
 # Page configuration
 st.set_page_config(
@@ -549,12 +548,15 @@ def apply_revision(content, feedback, model, api_key):
 
 def create_download_button(content, filename, button_text, file_format):
     """Create download button for different file formats"""
-    
+
     if file_format == "md":
-        b64 = base64.b64encode(content.encode()).decode()
-        href = f'<a href="data:text/markdown;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=content,
+            file_name=filename,
+            mime="text/markdown",
+        )
+
     elif file_format == "html":
         html_content = markdown.markdown(content)
         full_html = f"""
@@ -572,15 +574,21 @@ def create_download_button(content, filename, button_text, file_format):
         </body>
         </html>
         """
-        b64 = base64.b64encode(full_html.encode()).decode()
-        href = f'<a href="data:text/html;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=full_html,
+            file_name=filename,
+            mime="text/html",
+        )
+
     elif file_format == "json":
-        json_content = json.dumps(st.session_state.current_content, indent=2)
-        b64 = base64.b64encode(json_content.encode()).decode()
-        href = f'<a href="data:application/json;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
+        json_content = json.dumps(content, indent=2)
+        st.download_button(
+            label=button_text,
+            data=json_content,
+            file_name=filename,
+            mime="application/json",
+        )
 
 def display_generated_content(results, model, api_key):
     """Display generated content and enable revision workflow"""
