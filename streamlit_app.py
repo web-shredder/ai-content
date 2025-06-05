@@ -396,7 +396,13 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     compliance = inputs["compliance"]
     references = inputs["references"]
     
-    results = {}
+    results = {
+        "strategy": None,
+        "draft": None,
+        "seo_content": None,
+        "polished": None,
+        "editor_review": None,
+    }
     next_steps = {}
     
     # Stage 1: Strategist
@@ -869,15 +875,15 @@ def main():
             
             # Run the pipeline
             results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
-            
+
             if results:
                 # Store in session state
-                st.session_state.current_content = results
+                st.session_state.current_content = results.copy()
                 st.session_state.history.append({
                     "version": len(st.session_state.history) + 1,
                     "timestamp": datetime.now().isoformat(),
                     "inputs": inputs,
-                    "results": results
+                    "results": st.session_state.current_content.copy()
                 })
                 
                 display_generated_content(results, model, api_key)
@@ -975,7 +981,19 @@ def main():
                     if 'strategy' in version['results']:
                         st.markdown("**Strategist Output:**")
                         st.text(version['results']['strategy'])
-                    
+
+                    if 'draft' in version['results']:
+                        st.markdown("**Draft Content:**")
+                        st.text(version['results']['draft'])
+
+                    if 'seo_content' in version['results']:
+                        st.markdown("**SEO Optimized Content:**")
+                        st.text(version['results']['seo_content'])
+
+                    if 'polished' in version['results']:
+                        st.markdown("**Refined Content:**")
+                        st.text(version['results']['polished'])
+
                     if 'editor_review' in version['results']:
                         st.markdown("**Editor Review:**")
                         st.text(version['results']['editor_review'])
