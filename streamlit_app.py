@@ -6,7 +6,6 @@ import io
 import time
 from docx import Document
 import markdown
-import base64
 
 # Page configuration
 st.set_page_config(
@@ -72,7 +71,7 @@ st.markdown("""
     
     /* Progress bar customization */
     .stProgress > div > div > div > div {
-        background-color: #f7f6ed;
+        background-color: #18ff4e;
     }
     
     /* Score badge */
@@ -97,6 +96,12 @@ st.markdown("""
     .score-low {
         background-color: #F8D7DA;
         color: #721C24;
+    }
+
+    /* Content preview container */
+    .content-preview {
+        max-width: 50rem;
+        margin: 0 auto;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -549,12 +554,15 @@ def apply_revision(content, feedback, model, api_key):
 
 def create_download_button(content, filename, button_text, file_format):
     """Create download button for different file formats"""
-    
+
     if file_format == "md":
-        b64 = base64.b64encode(content.encode()).decode()
-        href = f'<a href="data:text/markdown;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=content,
+            file_name=filename,
+            mime="text/markdown",
+        )
+
     elif file_format == "html":
         html_content = markdown.markdown(content)
         full_html = f"""
@@ -572,15 +580,21 @@ def create_download_button(content, filename, button_text, file_format):
         </body>
         </html>
         """
-        b64 = base64.b64encode(full_html.encode()).decode()
-        href = f'<a href="data:text/html;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=full_html,
+            file_name=filename,
+            mime="text/html",
+        )
+
     elif file_format == "json":
-        json_content = json.dumps(st.session_state.current_content, indent=2)
-        b64 = base64.b64encode(json_content.encode()).decode()
-        href = f'<a href="data:application/json;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
+        json_content = json.dumps(content, indent=2)
+        st.download_button(
+            label=button_text,
+            data=json_content,
+            file_name=filename,
+            mime="application/json",
+        )
 
 def display_generated_content(results, model, api_key):
     """Display generated content and enable revision workflow"""
@@ -609,60 +623,77 @@ def display_generated_content(results, model, api_key):
         if results.get('comments'):
             st.info(f"💭 Editor's Note: {results['comments']}")
 
-    # Content preview
-    with st.expander(" View Full Content", expanded=True):
-        st.markdown(results['final_content'])
+    # Content preview and downloads
+    with st.container():
+        st.markdown('<div class="content-preview">', unsafe_allow_html=True)
 
-    # Download options
-    st.markdown("### Download Content")
-    col1, col2, col3, col4, col5 = st.columns(5)
+        with st.expander(" View Full Content", expanded=True):
+            st.markdown(results['final_content'])
 
-    with col1:
-        create_download_button(
-            results['final_content'],
-            f"{results['final_title'].replace(' ', '_')}.md",
-            "Markdown",
-            "md"
-        )
+        st.markdown("### Download Content")
+        col1, col2, col3, col4, col5 = st.columns(5)
 
-    with col2:
-        create_download_button(
-            results['final_content'],
-            f"{results['final_title'].replace(' ', '_')}.html",
-            "HTML",
-            "html"
-        )
+        with col1:
+            create_download_button(
+                results['final_content'],
+                f"{results['final_title'].replace(' ', '_')}.md",
+                "Markdown",
+                "md"
+            )
 
-    with col3:
-        # Note: DOCX requires python-docx - simplified for demo
-        st.button("Word (.docx)", disabled=True, help="Coming soon")
+        with col2:
+            create_download_button(
+                results['final_content'],
+                f"{results['final_title'].replace(' ', '_')}.html",
+                "HTML",
+                "html"
+            )
 
-    with col4:
-        # Note: PDF requires additional libraries - simplified for demo
-        st.button("PDF", disabled=True, help="Coming soon")
+        with col3:
+            # Note: DOCX requires python-docx - simplified for demo
+            st.button("Word (.docx)", disabled=True, help="Coming soon")
 
-    with col5:
-        create_download_button(
-            results,
-            f"{results['final_title'].replace(' ', '_')}.json",
-            "JSON",
-            "json"
-        )
+        with col4:
+            # Note: PDF requires additional libraries - simplified for demo
+            st.button("PDF", disabled=True, help="Coming soon")
+
+        with col5:
+            create_download_button(
+                results,
+                f"{results['final_title'].replace(' ', '_')}.json",
+                "JSON",
+                "json"
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # Revision section
-    st.markdown("### Request Revisions")
+    st.markdown("### Request Updates")
     with st.form("revision_form"):
-        feedback = st.text_area(
-            "Describe the changes you'd like",
-            placeholder="e.g., Make the introduction shorter and add a stronger call-to-action at the end...",
+        selected_steps = []
+        st.markdown("#### Recommended Next Steps")
+        if results.get('next_steps'):
+            for agent, steps in results['next_steps'].items():
+                if steps:
+                    st.markdown(f"**{agent}**")
+                    for i, step in enumerate(steps):
+                        if st.checkbox(step, key=f"{agent}_{i}"):
+                            selected_steps.append(step)
+
+        feedback_extra = st.text_area(
+            "Additional instructions",
+            placeholder="Add any extra notes...",
         )
 
-        if st.form_submit_button("Apply Revisions"):
-            if feedback:
+        if st.form_submit_button("Request updates"):
+            compiled = "\n".join(selected_steps)
+            if feedback_extra:
+                compiled = compiled + ("\n" if compiled else "") + feedback_extra
+            if compiled:
                 with st.spinner("Applying your revisions..."):
                     revision_result = apply_revision(
                         results['final_content'],
-                        feedback,
+                        compiled,
                         model,
                         api_key
                     )
@@ -677,7 +708,7 @@ def display_generated_content(results, model, api_key):
                         st.session_state.history.append({
                             "version": len(st.session_state.history) + 1,
                             "timestamp": datetime.now().isoformat(),
-                            "revision_feedback": feedback,
+                            "revision_feedback": compiled,
                             "results": st.session_state.current_content.copy()
                         })
 
@@ -699,6 +730,9 @@ def main():
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
             st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
+
+        # Container to display pipeline status messages
+        status_container = st.container()
 
         chat_box = st.expander("\ud83d\udcac Chat with AI Agents", expanded=True)
         with chat_box:
@@ -834,7 +868,7 @@ def main():
             }
             
             # Create containers for status and progress
-            status_container = st.empty()
+            status_container.empty()
             progress_bar = st.progress(0)
             
             # Run the pipeline
