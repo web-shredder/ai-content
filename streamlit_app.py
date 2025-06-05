@@ -350,18 +350,20 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
         st.error(f"Error calling {agent_name}: {str(e)}")
         return None
 
-def parse_queries(text):
-    """Extract list of queries from SEO Specialist output"""
-    queries = []
+def parse_queries(text: str) -> list[str]:
+    """Extract list of search queries from the SEO Specialist output."""
+
+    queries: list[str] = []
+
+    bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
+
     for line in text.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        # Lines starting with bullets or numbers likely represent queries
-        if re.match(r"^[-*\d+.]+\s", line):
-            query = re.sub(r"^[-*\d+.]+\s*", "", line)
+        match = bullet_pattern.match(line.strip())
+        if match:
+            query = match.group(1).strip()
             if query:
                 queries.append(query)
+
     return queries
 
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
