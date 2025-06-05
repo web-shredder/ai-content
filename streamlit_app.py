@@ -701,7 +701,7 @@ def main():
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
     
     # Main content area
-    tab1, tab2, tab3, tab4 = st.tabs(["Create Content", "Chat with Agents", "Version History", "Help"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Create Content", "Talk with the team", "Version History", "Help"])
     
     with tab1:
         if not api_key:
@@ -819,10 +819,10 @@ def main():
             st.warning("Please enter your OpenAI API key to use agent chat.")
             return
             
-        st.markdown("### 💬 Chat with AI Agents")
+        st.markdown("### 💬 Talk with the team")
         
         if not st.session_state.current_content:
-            st.info("Generate content first to chat with the AI agents about it.")
+            st.info("Generate content first to talk with the team about it.")
             return
         
         # Agent selector
@@ -935,7 +935,7 @@ def main():
         - Include relevant keywords for SEO optimization
         - Upload reference materials for more accurate content
         - Use the revision feature to fine-tune the output
-        - Chat with individual agents for detailed insights
+        - Talk with the team members for detailed insights
         
         """)
 
