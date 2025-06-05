@@ -25,7 +25,6 @@ st.markdown("""
         background-color: #f7f6ed;
     }
     body {font-size:0.875rem!important;}
-    p {margin-bottom:0!important;}
     
     /* Rounded containers */
     .stForm, .stExpander {
@@ -419,7 +418,7 @@ def refresh_current_session(placeholder):
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
         st.markdown("#### Agent Status")
         for agent, status in st.session_state.agent_status.items():
-            st.markdown(f"- **{agent}**: {status}")
+            st.markdown(f"**{agent}**: {status}")
 
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_placeholder):
     """Run the full 5-agent content creation pipeline
