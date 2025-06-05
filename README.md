@@ -1,6 +1,6 @@
 # 💬 Chatbot template
 
-A simple Streamlit app that shows how to build a chatbot using OpenAI's GPT-3.5.
+A simple Streamlit app that shows how to build a chatbot using newer GPT-4 based models.
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://chatbot-template.streamlit.app/)
 
@@ -17,3 +17,15 @@ A simple Streamlit app that shows how to build a chatbot using OpenAI's GPT-3.5.
    ```
    $ streamlit run streamlit_app.py
    ```
+
+### Available AI models
+
+The model selector offers three options that map to the corresponding OpenAI endpoints:
+
+| Option | Model name |
+| ------ | ---------- |
+| `4.1`  | `gpt-4.1-2025-04-14` |
+| `4o`   | `gpt-4o-2024-08-06` |
+| `o3`   | `o3-2025-04-16` |
+
+Choose whichever model best meets your quality and speed requirements when generating or revising content.
