@@ -6,7 +6,6 @@ import io
 import time
 from docx import Document
 import markdown
-import base64
 
 # Page configuration
 st.set_page_config(
@@ -72,7 +71,7 @@ st.markdown("""
     
     /* Progress bar customization */
     .stProgress > div > div > div > div {
-        background-color: #f7f6ed;
+        background-color: #18ff4e;
     }
     
     /* Score badge */
@@ -98,6 +97,12 @@ st.markdown("""
         background-color: #F8D7DA;
         color: #721C24;
     }
+
+    /* Content preview container */
+    .content-preview {
+        max-width: 50rem;
+        margin: 0 auto;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -114,6 +119,8 @@ if "chats" not in st.session_state:
         "Head of Content": [],
         "Editor-in-Chief": []
     }
+if "last_model" not in st.session_state:
+    st.session_state.last_model = "4o"
 
 # Model mapping
 MODEL_MAP = {
@@ -153,7 +160,9 @@ AGENT_PROMPTS = {
        - Trust-building credibility markers
        - Common pitfalls to avoid (buzzwords, jargon, condescension)
     
-    Remember: You're setting up the team for success. Be specific, practical, and always keep the reader's needs at the center.""",
+    Remember: You're setting up the team for success. Be specific, practical, and always keep the reader's needs at the center.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
     
     "Specialist Writer": """You are Momentic's Senior Technical Content Writer, specializing in making complex technical concepts accessible without dumbing them down. You have a background in software development and understand that great technical writing respects the reader's intelligence while ensuring clarity.
 
@@ -180,7 +189,9 @@ AGENT_PROMPTS = {
     - Use "you" to speak directly to the reader
     - Avoid buzzwords and corporate jargon entirely
     
-    Your goal: Create content that a senior developer would actually bookmark and share with their team.""",
+    Your goal: Create content that a senior developer would actually bookmark and share with their team.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
         
     "SEO Specialist": """You are Aurora-SEO at Momentic, a future-proof search strategist and relevance engineer specializing in driving organic impact across classic SERPs and AI surfaces (AI Overviews, AI Mode, ChatGPT, Perplexity).
     
@@ -217,7 +228,9 @@ AGENT_PROMPTS = {
     - Flag uncertainty rather than fabricate metrics
     - Include measurement hooks for citation frequency and answer prominence
     
-    Never sacrifice readability for traditional SEO metrics. The best content serves users first and search engines second.""",
+    Never sacrifice readability for traditional SEO metrics. The best content serves users first and search engines second.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
     
     "Head of Content": """You are Momentic's Head of Content with 15+ years in B2B tech content leadership. You've built content programs that establish market authority while driving real business results. You review content through both strategic and practical lenses.
 
@@ -254,7 +267,9 @@ AGENT_PROMPTS = {
     4) Add CTAs that feel genuinely helpful, never pushy
     5) Polish for memorability - what's the one thing readers will remember?
     
-    Your goal: Elevate good content to exceptional. Make it something you'd be proud to put your name on.""",
+    Your goal: Elevate good content to exceptional. Make it something you'd be proud to put your name on.
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions.""",
     
     "Editor-in-Chief": """You are Momentic's Editor-in-Chief, the final guardian of content quality and brand reputation. You've edited thousands of technical articles and have developed an instinct for what truly serves technical audiences.
 
@@ -308,7 +323,9 @@ AGENT_PROMPTS = {
     FINAL_TITLE: [The polished, publication-ready title]
     FINAL_SLUG: [SEO-optimized URL slug]
     
-    Editor's instinct: Would YOU save this article? Would you share it with a colleague?"""
+    Editor's instinct: Would YOU save this article? Would you share it with a colleague?
+
+When you finish, add a section titled 'Recommended Next Steps:' followed by a bullet list of actionable suggestions."""
 }
 
 def extract_text_from_file(uploaded_file):
@@ -349,6 +366,18 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
         st.error(f"Error calling {agent_name}: {str(e)}")
         return None
 
+def parse_next_steps(output):
+    """Split agent output into main content and bullet list of next steps"""
+    if "Recommended Next Steps:" in output:
+        content, steps_part = output.split("Recommended Next Steps:", 1)
+        steps = [
+            line.strip("- ").strip()
+            for line in steps_part.strip().splitlines()
+            if line.strip().startswith("-")
+        ]
+        return content.strip(), steps
+    return output.strip(), []
+
 def run_content_pipeline(inputs, model, api_key, status_container, progress_bar):
     """Run the full 5-agent content creation pipeline"""
     
@@ -363,7 +392,14 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     compliance = inputs["compliance"]
     references = inputs["references"]
     
-    results = {}
+    results = {
+        "strategy": None,
+        "draft": None,
+        "seo_content": None,
+        "polished": None,
+        "editor_review": None,
+    }
+    next_steps = {}
     
     # Stage 1: Strategist
     start_time = datetime.now()
@@ -381,11 +417,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Create a comprehensive content strategy with outline.
     """
     
-    strategy = call_agent("Strategist", strategist_prompt, model, api_key)
-    if not strategy:
+    strategy_raw = call_agent("Strategist", strategist_prompt, model, api_key)
+    if not strategy_raw:
         return None
-    
+    strategy, steps = parse_next_steps(strategy_raw)
     results["strategy"] = strategy
+    next_steps["Strategist"] = steps
     progress_bar.progress(0.2)
     
     # Stage 2: Specialist Writer
@@ -402,11 +439,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Voice: {brand_voice or 'Professional, data-driven, friendly'}
     """
     
-    draft = call_agent("Specialist Writer", writer_prompt, model, api_key)
-    if not draft:
+    draft_raw = call_agent("Specialist Writer", writer_prompt, model, api_key)
+    if not draft_raw:
         return None
-    
+    draft, steps = parse_next_steps(draft_raw)
     results["draft"] = draft
+    next_steps["Specialist Writer"] = steps
     progress_bar.progress(0.4)
     
     # Stage 3: SEO Specialist
@@ -421,11 +459,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Return the full content with SEO improvements applied.
     """
     
-    seo_content = call_agent("SEO Specialist", seo_prompt, model, api_key)
-    if not seo_content:
+    seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
+    if not seo_raw:
         return None
-    
+    seo_content, steps = parse_next_steps(seo_raw)
     results["seo_content"] = seo_content
+    next_steps["SEO Specialist"] = steps
     progress_bar.progress(0.6)
     
     # Stage 4: Head of Content
@@ -442,11 +481,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     Return the full refined content.
     """
     
-    polished = call_agent("Head of Content", head_prompt, model, api_key)
-    if not polished:
+    polished_raw = call_agent("Head of Content", head_prompt, model, api_key)
+    if not polished_raw:
         return None
-    
+    polished, steps = parse_next_steps(polished_raw)
     results["polished"] = polished
+    next_steps["Head of Content"] = steps
     progress_bar.progress(0.8)
     
     # Stage 5: Editor-in-Chief
@@ -461,11 +501,12 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
     {polished}
     """
     
-    editor_review = call_agent("Editor-in-Chief", editor_prompt, model, api_key)
-    if not editor_review:
+    editor_raw = call_agent("Editor-in-Chief", editor_prompt, model, api_key)
+    if not editor_raw:
         return None
-    
+    editor_review, steps = parse_next_steps(editor_raw)
     results["editor_review"] = editor_review
+    next_steps["Editor-in-Chief"] = steps
     progress_bar.progress(1.0)
     
     # Parse editor review
@@ -491,6 +532,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         results["comments"] = comments
         results["final_title"] = final_title
         results["final_content"] = polished
+        results["next_steps"] = next_steps
         
     except:
         results["approval"] = "Approved"
@@ -498,6 +540,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar)
         results["comments"] = "Content meets quality standards."
         results["final_title"] = topic
         results["final_content"] = polished
+        results["next_steps"] = next_steps
     
     status_container.success(f"✨ {datetime.now():%H:%M:%S} - Content generation complete!")
     
@@ -549,12 +592,15 @@ def apply_revision(content, feedback, model, api_key):
 
 def create_download_button(content, filename, button_text, file_format):
     """Create download button for different file formats"""
-    
+
     if file_format == "md":
-        b64 = base64.b64encode(content.encode()).decode()
-        href = f'<a href="data:text/markdown;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=content,
+            file_name=filename,
+            mime="text/markdown",
+        )
+
     elif file_format == "html":
         html_content = markdown.markdown(content)
         full_html = f"""
@@ -572,15 +618,21 @@ def create_download_button(content, filename, button_text, file_format):
         </body>
         </html>
         """
-        b64 = base64.b64encode(full_html.encode()).decode()
-        href = f'<a href="data:text/html;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
+        st.download_button(
+            label=button_text,
+            data=full_html,
+            file_name=filename,
+            mime="text/html",
+        )
+
     elif file_format == "json":
-        json_content = json.dumps(st.session_state.current_content, indent=2)
-        b64 = base64.b64encode(json_content.encode()).decode()
-        href = f'<a href="data:application/json;base64,{b64}" download="{filename}">📥 {button_text}</a>'
-        st.markdown(href, unsafe_allow_html=True)
+        json_content = json.dumps(content, indent=2)
+        st.download_button(
+            label=button_text,
+            data=json_content,
+            file_name=filename,
+            mime="application/json",
+        )
 
 def display_generated_content(results, model, api_key):
     """Display generated content and enable revision workflow"""
@@ -609,60 +661,77 @@ def display_generated_content(results, model, api_key):
         if results.get('comments'):
             st.info(f"💭 Editor's Note: {results['comments']}")
 
-    # Content preview
-    with st.expander(" View Full Content", expanded=True):
-        st.markdown(results['final_content'])
+    # Content preview and downloads
+    with st.container():
+        st.markdown('<div class="content-preview">', unsafe_allow_html=True)
 
-    # Download options
-    st.markdown("### Download Content")
-    col1, col2, col3, col4, col5 = st.columns(5)
+        with st.expander(" View Full Content", expanded=True):
+            st.markdown(results['final_content'])
 
-    with col1:
-        create_download_button(
-            results['final_content'],
-            f"{results['final_title'].replace(' ', '_')}.md",
-            "Markdown",
-            "md"
-        )
+        st.markdown("### Download Content")
+        col1, col2, col3, col4, col5 = st.columns(5)
 
-    with col2:
-        create_download_button(
-            results['final_content'],
-            f"{results['final_title'].replace(' ', '_')}.html",
-            "HTML",
-            "html"
-        )
+        with col1:
+            create_download_button(
+                results['final_content'],
+                f"{results['final_title'].replace(' ', '_')}.md",
+                "Markdown",
+                "md"
+            )
 
-    with col3:
-        # Note: DOCX requires python-docx - simplified for demo
-        st.button("Word (.docx)", disabled=True, help="Coming soon")
+        with col2:
+            create_download_button(
+                results['final_content'],
+                f"{results['final_title'].replace(' ', '_')}.html",
+                "HTML",
+                "html"
+            )
 
-    with col4:
-        # Note: PDF requires additional libraries - simplified for demo
-        st.button("PDF", disabled=True, help="Coming soon")
+        with col3:
+            # Note: DOCX requires python-docx - simplified for demo
+            st.button("Word (.docx)", disabled=True, help="Coming soon")
 
-    with col5:
-        create_download_button(
-            results,
-            f"{results['final_title'].replace(' ', '_')}.json",
-            "JSON",
-            "json"
-        )
+        with col4:
+            # Note: PDF requires additional libraries - simplified for demo
+            st.button("PDF", disabled=True, help="Coming soon")
+
+        with col5:
+            create_download_button(
+                results,
+                f"{results['final_title'].replace(' ', '_')}.json",
+                "JSON",
+                "json"
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # Revision section
-    st.markdown("###Request Revisions")
+    st.markdown("### Request Updates")
     with st.form("revision_form"):
-        feedback = st.text_area(
-            "Describe the changes you'd like",
-            placeholder="e.g., Make the introduction shorter and add a stronger call-to-action at the end...",
+        selected_steps = []
+        st.markdown("#### Recommended Next Steps")
+        if results.get('next_steps'):
+            for agent, steps in results['next_steps'].items():
+                if steps:
+                    st.markdown(f"**{agent}**")
+                    for i, step in enumerate(steps):
+                        if st.checkbox(step, key=f"{agent}_{i}"):
+                            selected_steps.append(step)
+
+        feedback_extra = st.text_area(
+            "Additional instructions",
+            placeholder="Add any extra notes...",
         )
 
-        if st.form_submit_button("Apply Revisions"):
-            if feedback:
+        if st.form_submit_button("Request updates"):
+            compiled = "\n".join(selected_steps)
+            if feedback_extra:
+                compiled = compiled + ("\n" if compiled else "") + feedback_extra
+            if compiled:
                 with st.spinner("Applying your revisions..."):
                     revision_result = apply_revision(
                         results['final_content'],
-                        feedback,
+                        compiled,
                         model,
                         api_key
                     )
@@ -677,7 +746,7 @@ def display_generated_content(results, model, api_key):
                         st.session_state.history.append({
                             "version": len(st.session_state.history) + 1,
                             "timestamp": datetime.now().isoformat(),
-                            "revision_feedback": feedback,
+                            "revision_feedback": compiled,
                             "results": st.session_state.current_content.copy()
                         })
 
@@ -691,17 +760,60 @@ def main():
     
     # Sidebar for API key
     with st.sidebar:
-        st.markdown("###Configuration")
+        st.markdown("### Configuration")
         api_key = st.text_input("OpenAI API Key", type="password", help="Your API key is not stored")
-        
+
         if st.session_state.current_content:
-            st.markdown("###Current Session")
+            st.markdown("### Current Session")
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
             st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
+
+        # Container to display pipeline status messages
+        status_container = st.container()
+
+        chat_box = st.expander("\ud83d\udcac Chat with AI Agents", expanded=True)
+        with chat_box:
+            if not api_key:
+                st.warning("Please enter your OpenAI API key to use agent chat.")
+            elif not st.session_state.current_content:
+                st.info("Generate content first to chat with the AI agents about it.")
+            else:
+                selected_agent = st.selectbox(
+                    "Select an agent to chat with:",
+                    ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"],
+                    key="chat_agent_select"
+                )
+
+                chat_container = st.container()
+                with chat_container:
+                    for message in st.session_state.chats[selected_agent]:
+                        if message["role"] == "user":
+                            st.chat_message("user").markdown(message["content"])
+                        else:
+                            st.chat_message("assistant").markdown(message["content"])
+
+                user_input = st.chat_input(f"Ask {selected_agent} a question...", key="sidebar_chat_input")
+
+                if user_input:
+                    st.session_state.chats[selected_agent].append({"role": "user", "content": user_input})
+                    with st.spinner(f"{selected_agent} is thinking..."):
+                        context = f"""
+                        Current content being discussed:
+                        Title: {st.session_state.current_content.get('final_title', 'N/A')}
+                        Score: {st.session_state.current_content.get('score', 'N/A')}
+
+                        Content preview:
+                        {st.session_state.current_content.get('final_content', '')[:500]}...
+                        """
+                        response = call_agent(selected_agent, user_input, st.session_state.last_model, api_key, context)
+
+                        if response:
+                            st.session_state.chats[selected_agent].append({"role": "assistant", "content": response})
+                            st.experimental_rerun()
     
     # Main content area
-    tab1, tab2, tab3, tab4 = st.tabs(["Create Content", "Chat with Agents", "Version History", "Help"])
+    tab1, tab2, tab3 = st.tabs(["Create Content", "Version History", "Help"])
     
     with tab1:
         if not api_key:
@@ -741,6 +853,7 @@ def main():
                     ["4.1", "4o", "o3"],
                     index=1
                 )
+                st.session_state.last_model = model
                 
                 keywords = st.text_input(
                     "SEO Keywords (comma-separated)",
@@ -794,7 +907,7 @@ def main():
             }
             
             # Create containers for status and progress
-            status_container = st.empty()
+            status_container.empty()
             progress_bar = st.progress(0)
             
             # Run the pipeline
@@ -802,79 +915,20 @@ def main():
             
             if results:
                 # Store in session state
-                st.session_state.current_content = results
+                st.session_state.current_content = results.copy()
                 st.session_state.history.append({
                     "version": len(st.session_state.history) + 1,
                     "timestamp": datetime.now().isoformat(),
                     "inputs": inputs,
-                    "results": results
+                    "results": st.session_state.current_content.copy()
                 })
                 
                 display_generated_content(results, model, api_key)
         elif st.session_state.current_content:
             display_generated_content(st.session_state.current_content, model, api_key)
     
-    with tab2:
-        if not api_key:
-            st.warning("Please enter your OpenAI API key to use agent chat.")
-            return
-            
-        st.markdown("### 💬 Chat with AI Agents")
-        
-        if not st.session_state.current_content:
-            st.info("Generate content first to chat with the AI agents about it.")
-            return
-        
-        # Agent selector
-        selected_agent = st.selectbox(
-            "Select an agent to chat with:",
-            ["Strategist", "Specialist Writer", "SEO Specialist", "Head of Content", "Editor-in-Chief"]
-        )
-        
-        # Chat interface
-        chat_container = st.container()
-        
-        # Display chat history
-        with chat_container:
-            for message in st.session_state.chats[selected_agent]:
-                if message["role"] == "user":
-                    st.chat_message("user").markdown(message["content"])
-                else:
-                    st.chat_message("assistant").markdown(message["content"])
-        
-        # Chat input
-        user_input = st.chat_input(f"Ask {selected_agent} a question...")
-        
-        if user_input:
-            # Add user message to history
-            st.session_state.chats[selected_agent].append({
-                "role": "user",
-                "content": user_input
-            })
-            
-            # Get agent response
-            with st.spinner(f"{selected_agent} is thinking..."):
-                # Build context
-                context = f"""
-                Current content being discussed:
-                Title: {st.session_state.current_content.get('final_title', 'N/A')}
-                Score: {st.session_state.current_content.get('score', 'N/A')}
-                
-                Content preview:
-                {st.session_state.current_content.get('final_content', '')[:500]}...
-                """
-                
-                # Call agent
-                response = call_agent(selected_agent, user_input, model, api_key, context)
-                
-                if response:
-                    st.session_state.chats[selected_agent].append({
-                        "role": "assistant",
-                        "content": response
-                    })
-                    st.experimental_rerun()
     
-    with tab3:
+    with tab2:
         st.markdown("### Content History")
         
         if not st.session_state.history:
@@ -905,21 +959,33 @@ def main():
                     if 'strategy' in version['results']:
                         st.markdown("**Strategist Output:**")
                         st.text(version['results']['strategy'])
-                    
+
+                    if 'draft' in version['results']:
+                        st.markdown("**Draft Content:**")
+                        st.text(version['results']['draft'])
+
+                    if 'seo_content' in version['results']:
+                        st.markdown("**SEO Optimized Content:**")
+                        st.text(version['results']['seo_content'])
+
+                    if 'polished' in version['results']:
+                        st.markdown("**Refined Content:**")
+                        st.text(version['results']['polished'])
+
                     if 'editor_review' in version['results']:
                         st.markdown("**Editor Review:**")
                         st.text(version['results']['editor_review'])
     
-    with tab4:
+    with tab3:
         st.markdown("""
-        ###Getting Started
+        ### Getting Started
         
         1. **Enter your OpenAI API Key** in the sidebar (it's not stored)
         2. **Fill out the content request form** with your requirements
         3. **Select an AI model** (GPT-4 recommended for best quality)
         4. **Click Generate Content** and watch your AI team work!
         
-        ###The AI Team
+        ### The AI Team
         
         Your content goes through 5 specialist AI agents:
         
@@ -929,7 +995,7 @@ def main():
         4. **Head of Content** - Ensures brand alignment
         5. **Editor-in-Chief** - Final review and approval
         
-        ###Tips for Best Results
+        ### Tips for Best Results
         
         - Be specific with your topic and key messages
         - Include relevant keywords for SEO optimization
