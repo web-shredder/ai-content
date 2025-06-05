@@ -700,7 +700,7 @@ def display_generated_content(results, model, api_key):
         with col4:
             # Note: PDF requires additional libraries - simplified for demo
             st.button("PDF", disabled=True, help="Coming soon")
-            
+
         with col5:
             create_download_button(
                 results,
@@ -778,7 +778,8 @@ def main():
         # Container to display pipeline status messages
         status_container = st.container()
 
-        chat_box = st.expander("\ud83d\udcac Chat with AI Agents", expanded=True)
+        chat_box = st.expander("💬 Chat with AI Agents", expanded=True)
+
         with chat_box:
             if not api_key:
                 st.warning("Please enter your OpenAI API key to use agent chat.")
@@ -992,6 +993,7 @@ def main():
                     })
                     st.experimental_rerun()
 
+    with tab2:
         st.markdown("### Content History")
         
         if not st.session_state.history:
