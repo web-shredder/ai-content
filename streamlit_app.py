@@ -39,7 +39,8 @@ st.markdown("""
         border-radius: 0.75rem;
         padding: 1.25rem 2.25rem;
     }
-    
+    .query-card {max-width:25rem;}
+
     /* Green accent for buttons */
     .stButton > button {
         background-color: #18ff4e;
