@@ -448,7 +448,7 @@ def refresh_current_session(placeholder):
         for agent, status in st.session_state.agent_status.items():
             st.markdown(f"**{agent}**: {status}")
 
-def run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_placeholder):
+def run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_placeholder, plan_mode=False):
     """Run the full 5-agent content creation pipeline
 
     Parameters
@@ -476,6 +476,10 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     st.session_state.current_content = {}
     for agent in st.session_state.agent_status:
         st.session_state.agent_status[agent] = "Queued"
+
+    if plan_mode:
+        st.session_state.agent_status["Specialist Writer"] = "Skipped"
+        st.session_state.agent_status["Editor-in-Chief"] = "Skipped"
 
     refresh_current_session(session_placeholder)
     
@@ -509,49 +513,59 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     st.session_state.agent_status["Strategist"] = "Completed"
     refresh_current_session(session_placeholder)
 
-    progress_bar.progress(0.2)
+    progress_bar.progress(0.33 if plan_mode else 0.2)
     
-    # Stage 2: Specialist Writer
-    st.session_state.agent_status["Specialist Writer"] = "In progress"
-    refresh_current_session(session_placeholder)
-    status_container.info(f"✍️ {datetime.now():%H:%M:%S} - **Specialist Writer** is drafting content...")
-    
-    writer_prompt = f"""
-    Based on this strategy:
-    {strategy}
-    
-    Write the full content for a {content_type} about {topic}.
-    Target audience: {audience}
-    Length: {length}
-    Key messages to include: {key_messages}
-    Voice: {brand_voice or 'Professional, data-driven, friendly'}
-    """
-    
-    draft_raw = call_agent("Specialist Writer", writer_prompt, model, api_key)
-    if not draft_raw:
-        return None
-    draft, steps = parse_next_steps(draft_raw)
-    results["draft"] = draft
-    st.session_state.current_content["draft"] = draft
-    next_steps["Specialist Writer"] = steps
-    st.session_state.agent_status["Specialist Writer"] = "Completed"
-    refresh_current_session(session_placeholder)
-    progress_bar.progress(0.4)
+    draft = ""
+    if not plan_mode:
+        # Stage 2: Specialist Writer
+        st.session_state.agent_status["Specialist Writer"] = "In progress"
+        refresh_current_session(session_placeholder)
+        status_container.info(f"✍️ {datetime.now():%H:%M:%S} - **Specialist Writer** is drafting content...")
+
+        writer_prompt = f"""
+        Based on this strategy:
+        {strategy}
+
+        Write the full content for a {content_type} about {topic}.
+        Target audience: {audience}
+        Length: {length}
+        Key messages to include: {key_messages}
+        Voice: {brand_voice or 'Professional, data-driven, friendly'}
+        """
+
+        draft_raw = call_agent("Specialist Writer", writer_prompt, model, api_key)
+        if not draft_raw:
+            return None
+        draft, steps = parse_next_steps(draft_raw)
+        results["draft"] = draft
+        st.session_state.current_content["draft"] = draft
+        next_steps["Specialist Writer"] = steps
+        st.session_state.agent_status["Specialist Writer"] = "Completed"
+        refresh_current_session(session_placeholder)
+        progress_bar.progress(0.4)
     
     # Stage 3: SEO Specialist
     st.session_state.agent_status["SEO Specialist"] = "In progress"
     refresh_current_session(session_placeholder)
     status_container.info(f"🔍 {datetime.now():%H:%M:%S} - **SEO Specialist** is optimizing for search...")
-    
-    seo_prompt = f"""
-    Optimize this content for SEO. Keywords to target: {keywords}
-    
-    Content to optimize:
-    {draft}
-    
-    Return the full content with SEO improvements applied.
-    """
-    
+
+    if plan_mode:
+        seo_prompt = f"""
+        Analyze search opportunities for the topic "{topic}" based on this strategy:
+        {strategy}
+
+        Provide up to 3 high-potential query fanouts and brief notes on how they support the overall plan.
+        """
+    else:
+        seo_prompt = f"""
+        Optimize this content for SEO. Keywords to target: {keywords}
+
+        Content to optimize:
+        {draft}
+
+        Return the full content with SEO improvements applied.
+        """
+
     seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
     if not seo_raw:
         return None
@@ -562,24 +576,35 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     next_steps["SEO Specialist"] = steps
     st.session_state.agent_status["SEO Specialist"] = "Completed"
     refresh_current_session(session_placeholder)
-    progress_bar.progress(0.6)
+    progress_bar.progress(0.66 if plan_mode else 0.6)
     
     # Stage 4: Head of Content
     st.session_state.agent_status["Head of Content"] = "In progress"
     refresh_current_session(session_placeholder)
     status_container.info(f"📝 {datetime.now():%H:%M:%S} - **Head of Content** is refining for brand alignment...")
-    
-    head_prompt = f"""
-    Refine this content for brand alignment and compliance.
-    Brand voice: {brand_voice or 'Professional, data-driven, friendly'}
-    Compliance requirements: {compliance}
-    
-    Content to refine:
-    {seo_content}
-    
-    Return the full refined content.
-    """
-    
+
+    if plan_mode:
+        head_prompt = f"""
+        Using the strategy and SEO analysis below, create a comprehensive content plan and brief for "{topic}". Highlight key messages, structure recommendations and how the fanout queries can be used.
+
+        Strategy:
+        {strategy}
+
+        SEO Analysis:
+        {seo_content}
+        """
+    else:
+        head_prompt = f"""
+        Refine this content for brand alignment and compliance.
+        Brand voice: {brand_voice or 'Professional, data-driven, friendly'}
+        Compliance requirements: {compliance}
+
+        Content to refine:
+        {seo_content}
+
+        Return the full refined content.
+        """
+
     polished_raw = call_agent("Head of Content", head_prompt, model, api_key)
     if not polished_raw:
         return None
@@ -589,65 +614,74 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     next_steps["Head of Content"] = steps
     st.session_state.agent_status["Head of Content"] = "Completed"
     refresh_current_session(session_placeholder)
-    progress_bar.progress(0.8)
+    progress_bar.progress(1.0 if plan_mode else 0.8)
     
-    # Stage 5: Editor-in-Chief
-    st.session_state.agent_status["Editor-in-Chief"] = "In progress"
-    refresh_current_session(session_placeholder)
-    status_container.info(f"✅ {datetime.now():%H:%M:%S} - **Editor-in-Chief** is reviewing for final approval...")
-    
-    editor_prompt = f"""
-    Review this final content for approval.
-    Original topic: {topic}
-    Content type: {content_type}
-    
-    Content to review:
-    {polished}
-    """
-    
-    editor_raw = call_agent("Editor-in-Chief", editor_prompt, model, api_key)
-    if not editor_raw:
-        return None
-    editor_review, steps = parse_next_steps(editor_raw)
-    results["editor_review"] = editor_review
-    st.session_state.current_content["editor_review"] = editor_review
-    next_steps["Editor-in-Chief"] = steps
-    st.session_state.agent_status["Editor-in-Chief"] = "Completed"
-    refresh_current_session(session_placeholder)
-    progress_bar.progress(1.0)
-    
-    # Parse editor review
-    try:
-        lines = editor_review.split('\n')
-        approval = "Approved"
-        score = "8/10"
-        comments = ""
-        final_title = topic
-        
-        for line in lines:
-            if "APPROVAL:" in line:
-                approval = line.split("APPROVAL:")[1].strip()
-            elif "SCORE:" in line:
-                score = line.split("SCORE:")[1].strip()
-            elif "COMMENTS:" in line:
-                comments = line.split("COMMENTS:")[1].strip()
-            elif "FINAL_TITLE:" in line:
-                final_title = line.split("FINAL_TITLE:")[1].strip()
-        
-        results["approval"] = approval
-        results["score"] = score
-        results["comments"] = comments
-        results["final_title"] = final_title
-        results["final_content"] = polished
-        results["next_steps"] = next_steps
-        
-    except:
-        results["approval"] = "Approved"
-        results["score"] = "8/10"
-        results["comments"] = "Content meets quality standards."
+    if not plan_mode:
+        # Stage 5: Editor-in-Chief
+        st.session_state.agent_status["Editor-in-Chief"] = "In progress"
+        refresh_current_session(session_placeholder)
+        status_container.info(f"✅ {datetime.now():%H:%M:%S} - **Editor-in-Chief** is reviewing for final approval...")
+
+        editor_prompt = f"""
+        Review this final content for approval.
+        Original topic: {topic}
+        Content type: {content_type}
+
+        Content to review:
+        {polished}
+        """
+
+        editor_raw = call_agent("Editor-in-Chief", editor_prompt, model, api_key)
+        if not editor_raw:
+            return None
+        editor_review, steps = parse_next_steps(editor_raw)
+        results["editor_review"] = editor_review
+        st.session_state.current_content["editor_review"] = editor_review
+        next_steps["Editor-in-Chief"] = steps
+        st.session_state.agent_status["Editor-in-Chief"] = "Completed"
+        refresh_current_session(session_placeholder)
+        progress_bar.progress(1.0)
+
+        # Parse editor review
+        try:
+            lines = editor_review.split('\n')
+            approval = "Approved"
+            score = "8/10"
+            comments = ""
+            final_title = topic
+
+            for line in lines:
+                if "APPROVAL:" in line:
+                    approval = line.split("APPROVAL:")[1].strip()
+                elif "SCORE:" in line:
+                    score = line.split("SCORE:")[1].strip()
+                elif "COMMENTS:" in line:
+                    comments = line.split("COMMENTS:")[1].strip()
+                elif "FINAL_TITLE:" in line:
+                    final_title = line.split("FINAL_TITLE:")[1].strip()
+
+            results["approval"] = approval
+            results["score"] = score
+            results["comments"] = comments
+            results["final_title"] = final_title
+            results["final_content"] = polished
+            results["next_steps"] = next_steps
+
+        except:
+            results["approval"] = "Approved"
+            results["score"] = "8/10"
+            results["comments"] = "Content meets quality standards."
+            results["final_title"] = topic
+            results["final_content"] = polished
+            results["next_steps"] = next_steps
+
+    else:
         results["final_title"] = topic
         results["final_content"] = polished
+        results["approval"] = "Plan Complete"
+        results["score"] = "N/A"
         results["next_steps"] = next_steps
+        progress_bar.progress(1.0)
     
     status_container.success(f"✨ {datetime.now():%H:%M:%S} - Content generation complete!")
     refresh_current_session(session_placeholder)
@@ -1006,6 +1040,11 @@ def main():
                     "Compliance Requirements",
                     placeholder="e.g., No medical claims"
                 )
+
+            plan_mode = st.checkbox(
+                "Planning Mode (strategy report only)",
+                help="Skip drafting and generate a content plan"
+            )
             
             key_messages = st.text_area(
                 "Key Messages/Points",
@@ -1048,7 +1087,7 @@ def main():
             progress_bar = st.progress(0)
             
             # Run the pipeline
-            results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_placeholder)
+            results = run_content_pipeline(inputs, model, api_key, status_container, progress_bar, session_placeholder, plan_mode)
 
             if results:
                 reset_chats()
@@ -1193,6 +1232,8 @@ def main():
         3. **SEO Specialist** - Optimizes for search engines
         4. **Head of Content** - Ensures brand alignment
         5. **Editor-in-Chief** - Final review and approval
+
+        Enable **Planning Mode** in the content form to run only the Strategist, SEO Specialist, and Head of Content for a high-level plan.
         
         ### Tips for Best Results
         

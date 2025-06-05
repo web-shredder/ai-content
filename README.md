@@ -29,3 +29,7 @@ The model selector offers three options that map to the corresponding OpenAI end
 | `o3`   | `o3-2025-04-16` |
 
 Choose whichever model best meets your quality and speed requirements when generating or revising content.
+
+### Planning Mode
+
+When you only need a strategic brief, enable **Planning Mode** in the app. This runs just the Strategist, SEO Specialist and Head of Content agents to deliver a content plan with up to three related topic fanouts.
