@@ -24,8 +24,7 @@ st.markdown("""
     .stApp {
         background-color: #f7f6ed;
     }
-    #html {font-size:0.875rem!important;}
-    .st-emotion-cache-1wmy9hl{gap:0px!important;}
+    body {font-size:0.875rem!important;}
     
     /* Rounded containers */
     .stForm, .stExpander {
