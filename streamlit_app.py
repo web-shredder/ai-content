@@ -713,8 +713,14 @@ def create_download_button(content, filename, button_text, file_format):
             mime="application/json",
         )
 
-def display_generated_content(results, model, api_key):
-    """Display generated content and enable revision workflow"""
+def display_generated_content(results, model, api_key, session_placeholder):
+    """Display generated content and enable revision workflow
+
+    Parameters
+    ----------
+    session_placeholder : st.empty
+        Sidebar placeholder used to show session details
+    """
     st.markdown("---")
     st.markdown("## Generated Content")
 
@@ -1015,9 +1021,9 @@ def main():
                     "results": st.session_state.current_content.copy()
                 })
                 
-                display_generated_content(results, model, api_key)
+                display_generated_content(results, model, api_key, session_placeholder)
         elif st.session_state.current_content:
-            display_generated_content(st.session_state.current_content, model, api_key)
+            display_generated_content(st.session_state.current_content, model, api_key, session_placeholder)
     
         if not api_key:
             st.warning("Please enter your OpenAI API key to use agent chat.")
