@@ -40,7 +40,7 @@ When you only need a strategic brief, enable **Planning Mode** in the app. This 
 The SEO Specialist now runs before any drafting begins so you can review keyword opportunities up front.
 In both regular and Planning Mode it lists suggested search queries under a **Search Queries** heading with a fan-out graph.
 Each bullet follows the `<Type>: <query> - <note>` format. The note after the dash explains why the query matters and is displayed in a separate **Reason** column. The table highlights type mismatches and shows cosine similarity scores. You can download the full list as a CSV file for further analysis.
-If fewer than 15 queries are supplied, the app displays a warning so you can rerun the SEO agent.
+If fewer than 20 queries are supplied, the app displays a warning so you can rerun the SEO agent.
 
 ### Reference Sharing Across Agents
 

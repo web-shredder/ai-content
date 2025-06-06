@@ -1055,8 +1055,8 @@ def display_generated_content(results, model, api_key, session_placeholder):
             
         if results.get('queries_typed'):
             st.markdown("### Suggested Search Queries")
-            if len(results['queries_typed']) < 15:
-                st.warning("SEO Specialist produced fewer than 15 queries.")
+            if len(results['queries_typed']) < 20:
+                st.warning("SEO Specialist produced fewer than 20 queries.")
             for q in results['queries_typed']:
                 label = f"{q['type']}: " if q['type'] else ""
                 st.markdown(f"- {label}{q['query']}")
@@ -1091,8 +1091,6 @@ def display_generated_content(results, model, api_key, session_placeholder):
             st.table(table_rows)
             csv_content = "Provided,Auto,Logic,Query,Reason,Similarity\n" + "\n".join(
                 f"{r['Provided']},{r['Auto']},{r['Logic']},{r['Query']},{r['Reason']},{r['Similarity']}" for r in table_rows
-            csv_content = "Provided,Auto,Logic,Query,Similarity\n" + "\n".join(
-                f"{r['Provided']},{r['Auto']},{r['Logic']},{r['Query']},{r['Similarity']}" for r in table_rows
             )
             results['queries_csv'] = csv_content
 
