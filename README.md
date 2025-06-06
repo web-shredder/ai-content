@@ -44,3 +44,4 @@ The suggestions appear in a table with their fanout type (reformulation, implici
 ### Reference Sharing Across Agents
 
 Uploaded files and all form inputs are stitched together into a context block that gets sent to **every** AI agent. This keeps the Strategist, SEO Specialist, Specialist Writer, Head of Content and Editor-in-Chief on the same page. The combined context also appears in the chat prompts so you can see exactly what they're working from.
+The app also loads the Markdown files in the `knowledge/` folder and appends them to that shared context so every agent consistently references the brand messaging, style guide and editorial process.

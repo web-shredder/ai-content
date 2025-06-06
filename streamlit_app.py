@@ -14,6 +14,7 @@ import streamlit.components.v1 as components
 import hashlib
 import random
 import math
+import os
 
 
 # Page configuration
@@ -390,6 +391,20 @@ def extract_text_from_file(uploaded_file):
     except Exception as e:
         return f"Error reading file: {str(e)}"
 
+def load_knowledge(directory: str = "knowledge") -> str:
+    """Concatenate Markdown files from the knowledge directory."""
+    content = ""
+    try:
+        for name in sorted(os.listdir(directory)):
+            path = os.path.join(directory, name)
+            if os.path.isfile(path) and name.endswith(".md"):
+                with open(path, "r") as f:
+                    data = f.read().strip()
+                content += f"\n\n--- {name} ---\n{data}"
+    except Exception:
+        pass
+    return content
+
 def call_agent(agent_name, prompt, model, api_key, context=""):
     """Make API call to OpenAI for an agent"""
     try:
@@ -626,6 +641,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     keywords = inputs["keywords"]
     compliance = inputs["compliance"]
     references = inputs["references"]
+    knowledge = load_knowledge()
     context_info = (
         f"Content Type: {content_type}\n"
         f"Topic: {topic}\n"
@@ -635,6 +651,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         f"Brand Voice: {brand_voice or 'Professional, data-driven, friendly'}\n"
         f"SEO Keywords: {keywords}\n"
         f"Compliance Requirements: {compliance}\n"
+        f"Knowledge Base:\n{knowledge[:1000] + '...' if len(knowledge) > 1000 else knowledge}\n"
         f"Reference Materials:\n"
         f"{references[:1000] + '...' if len(references) > 1000 else references}"
     )
