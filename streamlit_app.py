@@ -486,6 +486,30 @@ def cosine_sim(v1: list[float], v2: list[float]) -> float:
     return dot / (norm1 * norm2)
 
 
+def classify_query(query: str) -> str:
+    """Heuristically classify a query into fanout types."""
+    q = query.lower()
+
+    if any(t in q for t in [" vs ", "compare", "versus"]):
+        return "comparative"
+    if any(t in q for t in ["near me", "in ", "location", "at "]):
+        return "location"
+    if any(t in q for t in ["202", "today", "latest", "year", "month"]):
+        return "temporal"
+    if any(t in q for t in ["my ", "for me", "i ", "personalized"]):
+        return "personalized"
+    if any(t in q for t in ["error", "install", "setup", "troubleshoot", "code", "configuration"]):
+        return "technical"
+    if any(t in q for t in ["alternative", "similar", "related"]):
+        return "entity_expansion"
+    if any(t in q for t in ["what is", "define", "definition"]):
+        return "reformulation"
+    first = q.split()[0] if q.split() else ""
+    if first in ["how", "why", "what", "where", "when", "who"]:
+        return "user_intent"
+    return "implicit"
+
+
 def expand_query(query: str, root: str) -> list[str]:
     """Create variations of a query for fan-out."""
     templates = [
@@ -643,9 +667,45 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
 
     progress_bar.progress(0.33 if plan_mode else 0.2)
     
+    # Stage 2: SEO Specialist
+    st.session_state.agent_status["SEO Specialist"] = "In progress"
+    refresh_current_session(session_placeholder)
+    status_container.info(f"🔍 {datetime.now():%H:%M:%S} - **SEO Specialist** is optimizing for search...")
+
+    if plan_mode:
+        seo_prompt = f"""
+        Analyze search opportunities for the topic "{topic}" based on this strategy:
+        {strategy}
+
+        Provide up to 3 high-potential search query fanouts across these types:
+        reformulation, implicit, comparative, entity_expansion, personalized, temporal, location, user_intent, technical.
+        Return them as bullet points under the heading "Search Queries:" using the format "<Type>: <Search query> - <brief note>".
+        """
+    else:
+        seo_prompt = f"""
+        Analyze search opportunities for the topic "{topic}" using these keywords: {keywords}
+        {strategy}
+
+        Provide up to 3 high-potential search query fanouts across these types:
+        reformulation, implicit, comparative, entity_expansion, personalized, temporal, location, user_intent, technical.
+        Return them as bullet points under the heading "Search Queries:" using the format "<Type>: <Search query> - <brief note>".
+        """
+
+    seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
+    if not seo_raw:
+        return None
+    seo_content, steps = parse_next_steps(seo_raw)
+    results["seo_content"] = seo_content
+    st.session_state.current_content["seo_content"] = seo_content
+    results["queries"] = parse_queries(seo_content)
+    next_steps["SEO Specialist"] = steps
+    st.session_state.agent_status["SEO Specialist"] = "Completed"
+    refresh_current_session(session_placeholder)
+    progress_bar.progress(0.66 if plan_mode else 0.4)
+
     draft = ""
     if not plan_mode:
-        # Stage 2: Specialist Writer
+        # Stage 3: Specialist Writer
         st.session_state.agent_status["Specialist Writer"] = "In progress"
         refresh_current_session(session_placeholder)
         status_container.info(f"✍️ {datetime.now():%H:%M:%S} - **Specialist Writer** is drafting content...")
@@ -653,6 +713,9 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         writer_prompt = f"""
         Based on this strategy:
         {strategy}
+
+        Incorporate relevant search intent from these queries:
+        {', '.join(results['queries'])}
 
         Write the full content for a {content_type} about {topic}.
         Target audience: {audience}
@@ -670,45 +733,8 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         next_steps["Specialist Writer"] = steps
         st.session_state.agent_status["Specialist Writer"] = "Completed"
         refresh_current_session(session_placeholder)
-        progress_bar.progress(0.4)
-    
-    # Stage 3: SEO Specialist
-    st.session_state.agent_status["SEO Specialist"] = "In progress"
-    refresh_current_session(session_placeholder)
-    status_container.info(f"🔍 {datetime.now():%H:%M:%S} - **SEO Specialist** is optimizing for search...")
+        progress_bar.progress(0.6)
 
-    if plan_mode:
-        seo_prompt = f"""
-        Analyze search opportunities for the topic "{topic}" based on this strategy:
-        {strategy}
-
-        Provide up to 3 high-potential search query fanouts.
-        Return them as bullet points under the heading "Search Queries:" with brief notes on how each supports the overall plan.
-        """
-    else:
-        seo_prompt = f"""
-        Optimize this content for SEO. Keywords to target: {keywords}
-
-        Content to optimize:
-        {draft}
-
-        Return the full content with SEO improvements applied.
-
-        After the final content, list up to 3 related search queries as bullet points under the heading "Search Queries:".
-        """
-
-    seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
-    if not seo_raw:
-        return None
-    seo_content, steps = parse_next_steps(seo_raw)
-    results["seo_content"] = seo_content
-    st.session_state.current_content["seo_content"] = seo_content
-    results["queries"] = parse_queries(seo_content)
-    next_steps["SEO Specialist"] = steps
-    st.session_state.agent_status["SEO Specialist"] = "Completed"
-    refresh_current_session(session_placeholder)
-    progress_bar.progress(0.66 if plan_mode else 0.6)
-    
     # Stage 4: Head of Content
     st.session_state.agent_status["Head of Content"] = "In progress"
     refresh_current_session(session_placeholder)
@@ -731,7 +757,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Compliance requirements: {compliance}
 
         Content to refine:
-        {seo_content}
+        {draft if draft else seo_content}
 
         Return the full refined content.
         """
@@ -907,6 +933,14 @@ def create_download_button(content, filename, button_text, file_format):
             mime="application/json",
         )
 
+    elif file_format == "csv":
+        st.download_button(
+            label=button_text,
+            data=content,
+            file_name=filename,
+            mime="text/csv",
+        )
+
 def display_generated_content(results, model, api_key, session_placeholder):
     """Display generated content and enable revision workflow
 
@@ -963,6 +997,24 @@ def display_generated_content(results, model, api_key, session_placeholder):
                 min_queries=30,
                 levels=3
             )
+
+            table_rows = []
+            for nid, data in node_info.items():
+                if nid == "n0":
+                    continue
+                q_text = data['text']
+                row_type = classify_query(q_text)
+                table_rows.append({
+                    "Type": row_type,
+                    "Query": q_text,
+                    "Similarity": round(data['similarity'], 2)
+                })
+
+            st.table(table_rows)
+            csv_content = "Type,Query,Similarity\n" + "\n".join(
+                f"{r['Type']},{r['Query']},{r['Similarity']}" for r in table_rows
+            )
+            results['queries_csv'] = csv_content
 
             net = Network(height="450px", width="100%", directed=True, bgcolor="#f7f6ed")
             for nid, data in node_info.items():
@@ -1027,7 +1079,7 @@ def display_generated_content(results, model, api_key, session_placeholder):
             components.html(html, height=500, scrolling=True)
 
         st.markdown("### Download Content")
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
 
         with col1:
             create_download_button(
@@ -1060,6 +1112,15 @@ def display_generated_content(results, model, api_key, session_placeholder):
                 "JSON",
                 "json"
             )
+
+        with col6:
+            if results.get('queries_csv'):
+                create_download_button(
+                    results['queries_csv'],
+                    f"{results['final_title'].replace(' ', '_')}_queries.csv",
+                    "Queries CSV",
+                    "csv"
+                )
 
         st.markdown("</div>", unsafe_allow_html=True)
 

@@ -37,4 +37,6 @@ Choose whichever model best meets your quality and speed requirements when gener
 
 When you only need a strategic brief, enable **Planning Mode** in the app. This runs just the Strategist, SEO Specialist and Head of Content agents to deliver a content plan with up to three related topic fanouts.
 
-In both regular and Planning Mode, the SEO Specialist now lists suggested search queries under a **Search Queries** heading so you can see keyword opportunities and an interactive fan-out visualization.
+The SEO Specialist now runs before any drafting begins so you can review keyword opportunities up front.
+In both regular and Planning Mode it lists suggested search queries under a **Search Queries** heading with a fan-out graph.
+The suggestions appear in a table with their fanout type (reformulation, implicit, comparative, entity expansion, personalized, temporal, location, user intent or technical) and cosine similarity score. You can download the full list as a CSV file for further analysis.
