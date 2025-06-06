@@ -622,6 +622,18 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     keywords = inputs["keywords"]
     compliance = inputs["compliance"]
     references = inputs["references"]
+    context_info = (
+        f"Content Type: {content_type}\n"
+        f"Topic: {topic}\n"
+        f"Target Audience: {audience}\n"
+        f"Length: {length}\n"
+        f"Key Messages: {key_messages}\n"
+        f"Brand Voice: {brand_voice or 'Professional, data-driven, friendly'}\n"
+        f"SEO Keywords: {keywords}\n"
+        f"Compliance Requirements: {compliance}\n"
+        f"Reference Materials:\n"
+        f"{references[:1000] + '...' if len(references) > 1000 else references}"
+    )
     results = {}
     next_steps = {}
 
@@ -655,7 +667,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     Create a comprehensive content strategy with outline.
     """
     
-    strategy_raw = call_agent("Strategist", strategist_prompt, model, api_key)
+    strategy_raw = call_agent("Strategist", strategist_prompt, model, api_key, context_info)
     if not strategy_raw:
         return None
     strategy, steps = parse_next_steps(strategy_raw)
@@ -691,7 +703,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Return them as bullet points under the heading "Search Queries:" using the format "<Type>: <Search query> - <brief note>".
         """
 
-    seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key)
+    seo_raw = call_agent("SEO Specialist", seo_prompt, model, api_key, context_info)
     if not seo_raw:
         return None
     seo_content, steps = parse_next_steps(seo_raw)
@@ -724,7 +736,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Voice: {brand_voice or 'Professional, data-driven, friendly'}
         """
 
-        draft_raw = call_agent("Specialist Writer", writer_prompt, model, api_key)
+        draft_raw = call_agent("Specialist Writer", writer_prompt, model, api_key, context_info)
         if not draft_raw:
             return None
         draft, steps = parse_next_steps(draft_raw)
@@ -762,7 +774,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Return the full refined content.
         """
 
-    polished_raw = call_agent("Head of Content", head_prompt, model, api_key)
+    polished_raw = call_agent("Head of Content", head_prompt, model, api_key, context_info)
     if not polished_raw:
         return None
     polished, steps = parse_next_steps(polished_raw)
@@ -788,7 +800,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         {polished}
         """
 
-        editor_raw = call_agent("Editor-in-Chief", editor_prompt, model, api_key)
+        editor_raw = call_agent("Editor-in-Chief", editor_prompt, model, api_key, context_info)
         if not editor_raw:
             return None
         editor_review, steps = parse_next_steps(editor_raw)
@@ -842,10 +854,11 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     
     status_container.success(f"✨ {datetime.now():%H:%M:%S} - Content generation complete!")
     refresh_current_session(session_placeholder)
-    
+
+    results["context_info"] = context_info
     return results
 
-def apply_revision(content, feedback, model, api_key):
+def apply_revision(content, feedback, model, api_key, context=""):
     """Apply user feedback to revise content"""
     
     revision_prompt = f"""
@@ -861,7 +874,7 @@ def apply_revision(content, feedback, model, api_key):
     SCORE: [X/10]
     """
     
-    revised = call_agent("Editor-in-Chief", revision_prompt, model, api_key)
+    revised = call_agent("Editor-in-Chief", revision_prompt, model, api_key, context)
     
     if revised:
         # Parse the response
@@ -1152,7 +1165,8 @@ def display_generated_content(results, model, api_key, session_placeholder):
                         results['final_content'],
                         compiled,
                         model,
-                        api_key
+                        api_key,
+                        results.get('context_info', '')
                     )
 
                     if revision_result:
@@ -1228,6 +1242,8 @@ def main():
 
                         Content preview:
                         {st.session_state.current_content.get('final_content', '')[:500]}...
+
+                        {st.session_state.current_content.get('context_info', '')}
                         """
                         response = call_agent(selected_agent, user_input, st.session_state.last_model, api_key, context)
 
@@ -1404,9 +1420,11 @@ def main():
                 Current content being discussed:
                 Title: {st.session_state.current_content.get('final_title', 'N/A')}
                 Score: {st.session_state.current_content.get('score', 'N/A')}
-                
+
                 Content preview:
                 {st.session_state.current_content.get('final_content', '')[:500]}...
+
+                {st.session_state.current_content.get('context_info', '')}
                 """
                 
                 # Call agent
