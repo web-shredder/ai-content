@@ -456,47 +456,74 @@ def parse_queries(text: str) -> list[dict]:
     any explanation that follows a dash."""
 
     queries: list[dict] = []
-    bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+[.)])\s*(.+)")
-    typed_pattern = re.compile(r"(?P<type>[^:]+):\s*(?P<rest>.+)")
+    bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+[.)]|\d+:)\s*(.+)")
+    typed_pattern = re.compile(r"(?P<type>[^:-]+)\s*[:-]\s*(?P<rest>.+)")
+    known_types = {
+        "reformulation",
+        "implicit",
+        "comparative",
+        "entity_expansion",
+        "personalized",
+        "temporal",
+        "location",
+        "user_intent",
+        "technical",
+    }
     capture = False
     found = False
     for line in text.splitlines():
         lower = line.lower().strip()
+        match = bullet_pattern.match(line)
         if not capture:
-            if "search queries" in lower or (
+            heading = "search queries" in lower or (
                 "query" in lower and (":" in lower or lower.startswith("#"))
-            ):
-                capture = True
-                continue
-        else:
-            if not line.strip():
-                continue
-
-            match = bullet_pattern.match(line)
+            )
+            start_list = False
             if match:
                 item = match.group(1).strip()
                 tmatch = typed_pattern.match(item)
                 if tmatch:
-                    qtype = tmatch.group("type").strip().lower().replace(" ", "_")
-                    rest = tmatch.group("rest").strip()
+                    qtype_check = tmatch.group("type").strip().lower().replace(" ", "_")
+                    if qtype_check in known_types:
+                        start_list = True
+            if heading or start_list:
+                capture = True
+                if start_list:
+                    # Fall through to process this line as a query
+                    pass
                 else:
-                    qtype = ""
+                    continue
+        if not line.strip():
+            continue
+
+        match = bullet_pattern.match(line)
+        if match:
+            item = match.group(1).strip()
+            tmatch = typed_pattern.match(item)
+            if tmatch:
+                qtype = tmatch.group("type").strip().lower().replace(" ", "_")
+                rest = tmatch.group("rest").strip()
+                if qtype not in known_types:
                     rest = item
-
-                if " - " in rest:
-                    qtext, note = rest.split(" - ", 1)
-                    qtext = qtext.strip()
-                    note = note.strip()
-                else:
-                    qtext = rest
-                    note = ""
-
-                if qtext:
-                    queries.append({"type": qtype, "query": qtext, "note": note})
-                    found = True
+                    qtype = ""
             else:
-                if found:
-                    break
+                qtype = ""
+                rest = item
+
+            if " - " in rest:
+                qtext, note = rest.split(" - ", 1)
+                qtext = qtext.strip()
+                note = note.strip()
+            else:
+                qtext = rest
+                note = ""
+
+            if qtext:
+                queries.append({"type": qtype, "query": qtext, "note": note})
+                found = True
+        else:
+            if found:
+                break
 
     seen = set()
     unique = []

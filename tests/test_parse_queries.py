@@ -51,5 +51,12 @@ class ParseQueriesTest(unittest.TestCase):
         ]
         self.assertEqual(parse_queries(text), expected)
 
+    def test_number_colon_and_hyphen_type(self):
+        text = """Search Queries:\n1: Comparative - fasttrace vs jaeger\n2: Implicit - tracing library"""
+        expected = [
+            {"type": "comparative", "query": "fasttrace vs jaeger", "note": ""},
+            {"type": "implicit", "query": "tracing library", "note": ""},
+        ]
+        self.assertEqual(parse_queries(text), expected)
 if __name__ == '__main__':
     unittest.main()
