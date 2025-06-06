@@ -653,6 +653,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         f"Compliance Requirements: {compliance}\n"
         f"Knowledge Base:\n"
         f"{knowledge[:1000] + '...' if len(knowledge) > 1000 else knowledge}\n"
+
         f"Reference Materials:\n"
         f"{references[:1000] + '...' if len(references) > 1000 else references}"
     )
