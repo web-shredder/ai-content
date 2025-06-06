@@ -22,16 +22,16 @@ class ParseQueriesTest(unittest.TestCase):
     def test_blank_line_after_heading(self):
         text = """Search Queries:\n\n- Reformulation: what is fasttrace?\n- Implicit: tracing library benefits"""
         expected = [
-            "Reformulation: what is fasttrace?",
-            "Implicit: tracing library benefits",
+            {"type": "reformulation", "query": "what is fasttrace?"},
+            {"type": "implicit", "query": "tracing library benefits"},
         ]
         self.assertEqual(parse_queries(text), expected)
 
     def test_non_bullet_lines(self):
         text = """Search Queries:\n1. Why use FastTrace?\n2. FastTrace vs Zipkin\nNotes:"""
         expected = [
-            "Why use FastTrace?",
-            "FastTrace vs Zipkin",
+            {"type": "", "query": "Why use FastTrace?"},
+            {"type": "", "query": "FastTrace vs Zipkin"},
         ]
         self.assertEqual(parse_queries(text), expected)
 
