@@ -642,15 +642,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     compliance = inputs["compliance"]
     references = inputs["references"]
     knowledge = load_knowledge()
-    context_info = (
-        f"Content Type: {content_type}\n"
-        f"Topic: {topic}\n"
-        f"Target Audience: {audience}\n"
-        f"Length: {length}\n"
-        f"Key Messages: {key_messages}\n"
-        f"Brand Voice: {brand_voice or 'Professional, data-driven, friendly'}\n"
-        f"SEO Keywords: {keywords}\n"
-        f"Compliance Requirements: {compliance}\n"
+
         f"Knowledge Base:\n{knowledge[:1000] + '...' if len(knowledge) > 1000 else knowledge}\n"
         f"Reference Materials:\n"
         f"{references[:1000] + '...' if len(references) > 1000 else references}"
