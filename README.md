@@ -40,3 +40,8 @@ When you only need a strategic brief, enable **Planning Mode** in the app. This 
 The SEO Specialist now runs before any drafting begins so you can review keyword opportunities up front.
 In both regular and Planning Mode it lists suggested search queries under a **Search Queries** heading with a fan-out graph.
 The suggestions appear in a table with their fanout type (reformulation, implicit, comparative, entity expansion, personalized, temporal, location, user intent or technical) and cosine similarity score. You can download the full list as a CSV file for further analysis.
+
+### Reference Sharing Across Agents
+
+Uploaded files and all form inputs are stitched together into a context block that gets sent to **every** AI agent. This keeps the Strategist, SEO Specialist, Specialist Writer, Head of Content and Editor-in-Chief on the same page. The combined context also appears in the chat prompts so you can see exactly what they're working from.
+The app also loads the Markdown files in the `knowledge/` folder and appends them to that shared context so every agent consistently references the brand messaging, style guide and editorial process.
