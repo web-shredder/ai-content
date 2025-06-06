@@ -250,10 +250,10 @@ When you finish, add a section titled 'Recommended Next Steps:' followed by a bu
     Your RAISE-R Workflow:
     1) **Request-clarify**: Understand the content's goal and target metrics
     2) **Audit current surface**: Analyze SERP/AI Mode snapshots and competing passages
-    3) **Infer fan-out landscape**: Generate 6+ synthetic queries spanning related, comparative, and entity-expanded types
-    4) **Score semantic gaps**: Identify where content fails to align with search intent
-    5) **Engineer relevance**: Optimize for both traditional SEO and AI snippet capture
-    6) **Review & report**: Provide actionable improvements with expected impact
+    3) **Infer fan-out landscape**: Generate 20+ synthetic queries spanning all query fan out types. Things that actual humans would think/say/type in a chatbot.
+    4) **Score semantic gaps**: Identify where content fails to align with search intent and report this out.
+    5) **Engineer relevance**: Optimize for both traditional SEO and AI snippet capture. Do this by mapping cosine similarity and chunking.
+    6) **Review & report**: Report everything out in its proper place.
     
     Optimization Approach:
     - **Snippet Sculpting**: Position key value props in first 160 characters for AI snippet capture
@@ -274,6 +274,7 @@ When you finish, add a section titled 'Recommended Next Steps:' followed by a bu
     - Bullet points over prose
     - Flag uncertainty rather than fabricate metrics
     - Include measurement hooks for citation frequency and answer prominence
+    - Under a **Search Queries** heading, list each suggestion as `<Type>: <query>` and double-check that the type label matches the query intent.
     
     Never sacrifice readability for traditional SEO metrics. The best content serves users first and search engines second.
 
@@ -446,11 +447,16 @@ def parse_next_steps(output):
         return content.strip(), steps
     return output.strip(), []
 
-def parse_queries(text: str) -> list[str]:
-    """Extract search queries from SEO Specialist output."""
+def parse_queries(text: str) -> list[dict]:
+    """Extract search queries from SEO Specialist output.
 
-    queries: list[str] = []
+    Returns a list of dictionaries with ``type``, ``query`` and ``note`` keys
+    so we can validate how the SEO agent labeled each suggestion and capture
+    any explanation that follows a dash."""
+
+    queries: list[dict] = []
     bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
+    typed_pattern = re.compile(r"(?P<type>[^:]+):\s*(?P<rest>.+)")
 
     capture = False
     found = False
@@ -470,9 +476,25 @@ def parse_queries(text: str) -> list[str]:
 
             match = bullet_pattern.match(line)
             if match:
-                query = match.group(1).strip()
-                if query:
-                    queries.append(query)
+                item = match.group(1).strip()
+                tmatch = typed_pattern.match(item)
+                if tmatch:
+                    qtype = tmatch.group("type").strip().lower().replace(" ", "_")
+                    rest = tmatch.group("rest").strip()
+                else:
+                    qtype = ""
+                    rest = item
+
+                if " - " in rest:
+                    qtext, note = rest.split(" - ", 1)
+                    qtext = qtext.strip()
+                    note = note.strip()
+                else:
+                    qtext = rest
+                    note = ""
+
+                if qtext:
+                    queries.append({"type": qtype, "query": qtext, "note": note})
                     found = True
             else:
                 if found:
@@ -481,7 +503,7 @@ def parse_queries(text: str) -> list[str]:
     seen = set()
     unique = []
     for q in queries:
-        qnorm = q.lower()
+        qnorm = q["query"].lower()
         if qnorm not in seen:
             unique.append(q)
             seen.add(qnorm)
@@ -506,26 +528,34 @@ def cosine_sim(v1: list[float], v2: list[float]) -> float:
 
 
 def classify_query(query: str) -> str:
-    """Heuristically classify a query into fanout types."""
+    """Heuristically classify a query into fan-out types."""
     q = query.lower()
 
-    if any(t in q for t in [" vs ", "compare", "versus"]):
+    if any(t in q for t in [" vs ", "versus", "compare", "difference", "better than"]):
         return "comparative"
-    if any(t in q for t in ["near me", "in ", "location", "at "]):
+
+    if re.search(r"\b(near me|in [a-z]+|at [a-z]+|location|city|country)\b", q):
         return "location"
-    if any(t in q for t in ["202", "today", "latest", "year", "month"]):
+
+    if re.search(r"\b(20\d{2}|today|latest|this year|this month)\b", q) or re.search(r"\b\d+[- ]?(day|week|month|year)s?\b", q):
         return "temporal"
-    if any(t in q for t in ["my ", "for me", "i ", "personalized"]):
+
+    if re.search(r"\b(my|for me|i |personalized|best for me|should i)\b", q):
         return "personalized"
-    if any(t in q for t in ["error", "install", "setup", "troubleshoot", "code", "configuration"]):
+
+    if any(t in q for t in ["error", "install", "setup", "troubleshoot", "code", "configuration", "how to", "fix"]):
         return "technical"
-    if any(t in q for t in ["alternative", "similar", "related"]):
+
+    if any(t in q for t in ["alternative", "similar", "related", "competitor"]):
         return "entity_expansion"
-    if any(t in q for t in ["what is", "define", "definition"]):
+
+    if any(t in q for t in ["what is", "define", "definition", "meaning"]):
         return "reformulation"
+
     first = q.split()[0] if q.split() else ""
     if first in ["how", "why", "what", "where", "when", "who"]:
         return "user_intent"
+
     return "implicit"
 
 
@@ -732,7 +762,10 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
     seo_content, steps = parse_next_steps(seo_raw)
     results["seo_content"] = seo_content
     st.session_state.current_content["seo_content"] = seo_content
-    results["queries"] = parse_queries(seo_content)
+
+    parsed_queries = parse_queries(seo_content)
+    results["queries_typed"] = parsed_queries
+    results["queries"] = [q["query"] for q in parsed_queries]
     next_steps["SEO Specialist"] = steps
     st.session_state.agent_status["SEO Specialist"] = "Completed"
     refresh_current_session(session_placeholder)
@@ -1021,10 +1054,13 @@ def display_generated_content(results, model, api_key, session_placeholder):
         with st.expander(" View Full Content", expanded=True):
             st.markdown(results['final_content'])
             
-        if results.get('queries'):
+        if results.get('queries_typed'):
             st.markdown("### Suggested Search Queries")
-            for q in results['queries']:
-                st.markdown(f"- {q}")
+            if len(results['queries_typed']) < 15:
+                st.warning("SEO Specialist produced fewer than 15 queries.")
+            for q in results['queries_typed']:
+                label = f"{q['type']}: " if q['type'] else ""
+                st.markdown(f"- {label}{q['query']}")
 
             # Build interactive network graph with query fan-out
             G, node_info = build_query_graph(
@@ -1034,21 +1070,28 @@ def display_generated_content(results, model, api_key, session_placeholder):
                 levels=3
             )
 
+            provided_map = {q['query']: q['type'] for q in results.get('queries_typed', [])}
+            note_map = {q['query']: q.get('note', '') for q in results.get('queries_typed', [])}
             table_rows = []
             for nid, data in node_info.items():
                 if nid == "n0":
                     continue
                 q_text = data['text']
-                row_type = classify_query(q_text)
+                auto_type = classify_query(q_text)
+                provided = provided_map.get(q_text, "")
+                logic_check = "✓" if not provided or provided == auto_type else "⚠"
                 table_rows.append({
-                    "Type": row_type,
+                    "Provided": provided or "-",
+                    "Auto": auto_type,
+                    "Logic": logic_check,
                     "Query": q_text,
+                    "Reason": note_map.get(q_text, ""),
                     "Similarity": round(data['similarity'], 2)
                 })
 
             st.table(table_rows)
-            csv_content = "Type,Query,Similarity\n" + "\n".join(
-                f"{r['Type']},{r['Query']},{r['Similarity']}" for r in table_rows
+            csv_content = "Provided,Auto,Logic,Query,Reason,Similarity\n" + "\n".join(
+                f"{r['Provided']},{r['Auto']},{r['Logic']},{r['Query']},{r['Reason']},{r['Similarity']}" for r in table_rows
             )
             results['queries_csv'] = csv_content
 
@@ -1061,12 +1104,19 @@ def display_generated_content(results, model, api_key, session_placeholder):
                     f"<div class='query-meta'>Cosine similarity: {data['similarity']:.2f}</div>"
                     "</div>"
                 )
+                provided = provided_map.get(data['text'])
+                note = note_map.get(data['text'])
+                auto = classify_query(data['text'])
+                color = None
+                if provided:
+                    color = '#99e599' if provided == auto else '#f9d6d5'
                 net.add_node(
                     nid,
                     label=data['text'],
-                    title=title_html,
+                    title=title_html if not note else title_html.replace('</div>', f"<div class='query-meta'>Note: {note}</div></div>", 1),
                     shape='box',
                     size=size,
+                    color=color,
                 )
             for src, dst in G.edges():
                 sim = node_info[dst]['similarity']
