@@ -153,8 +153,8 @@ if "current_content" not in st.session_state:
 if "chats" not in st.session_state:
     st.session_state.chats = {
         "Strategist": [],
-        "Specialist Writer": [],
         "SEO Specialist": [],
+        "Specialist Writer": [],
         "Head of Content": [],
         "Editor-in-Chief": []
     }
@@ -163,8 +163,8 @@ if "last_model" not in st.session_state:
 if "agent_status" not in st.session_state:
     st.session_state.agent_status = {
         "Strategist": "Pending",
-        "Specialist Writer": "Pending",
         "SEO Specialist": "Pending",
+        "Specialist Writer": "Pending",
         "Head of Content": "Pending",
         "Editor-in-Chief": "Pending",
     }
@@ -370,6 +370,7 @@ When you finish, add a section titled 'Recommended Next Steps:' followed by a bu
     
     FINAL_TITLE: [The polished, publication-ready title]
     FINAL_SLUG: [SEO-optimized URL slug]
+    FINAL_DESCRIPTION: [A description of the content that convinces the reader that it's worth reading]
     
     Editor's instinct: Would YOU save this article? Would you share it with a colleague?
 
@@ -424,9 +425,9 @@ def call_agent(agent_name, prompt, model, api_key, context=""):
         }
 
         if MODEL_MAP[model].startswith("o3"):
-            params["max_completion_tokens"] = 10000
+            params["max_completion_tokens"] = 20000
         else:
-            params["max_tokens"] = 10000
+            params["max_tokens"] = 20000
 
         response = openai.ChatCompletion.create(**params)
         
@@ -626,8 +627,8 @@ def reset_chats():
     """Clear all stored chat history."""
     st.session_state.chats = {
         "Strategist": [],
-        "Specialist Writer": [],
         "SEO Specialist": [],
+        "Specialist Writer": [],
         "Head of Content": [],
         "Editor-in-Chief": []
     }
@@ -642,6 +643,7 @@ def refresh_current_session(placeholder):
         st.markdown("### Current Session")
         if st.session_state.get("current_content"):
             st.markdown(f"**Title:** {st.session_state.current_content.get('final_title', 'N/A')}")
+            st.markdown(f"**Desc:** {st.session_state.current_content.get('final_description', 'N/A')}")
             st.markdown(f"**Score:** {st.session_state.current_content.get('score', 'N/A')}")
             st.markdown(f"**Status:** {st.session_state.current_content.get('approval', 'N/A')}")
         st.markdown("#### Agent Status")
@@ -741,7 +743,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Analyze search opportunities for the topic "{topic}" based on this strategy:
         {strategy}
 
-        Provide up to 3 high-potential search query fanouts across these types:
+        Provide at least 15 high-potential search query fanouts across these types:
         reformulation, implicit, comparative, entity_expansion, personalized, temporal, location, user_intent, technical.
         Return them as bullet points under the heading "Search Queries:" using the format "<Type>: <Search query> - <brief note>".
         """
@@ -750,7 +752,7 @@ def run_content_pipeline(inputs, model, api_key, status_container, progress_bar,
         Analyze search opportunities for the topic "{topic}" using these keywords: {keywords}
         {strategy}
 
-        Provide up to 3 high-potential search query fanouts across these types:
+        Provide at least 15 high-potential search query fanouts across these types:
         reformulation, implicit, comparative, entity_expansion, personalized, temporal, location, user_intent, technical.
         Return them as bullet points under the heading "Search Queries:" using the format "<Type>: <Search query> - <brief note>".
         """
