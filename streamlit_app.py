@@ -457,7 +457,6 @@ def parse_queries(text: str) -> list[dict]:
     queries: list[dict] = []
     bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
     typed_pattern = re.compile(r"(?P<type>[^:]+):\s*(?P<rest>.+)")
-
     capture = False
     found = False
     for line in text.splitlines():
@@ -1092,6 +1091,8 @@ def display_generated_content(results, model, api_key, session_placeholder):
             st.table(table_rows)
             csv_content = "Provided,Auto,Logic,Query,Reason,Similarity\n" + "\n".join(
                 f"{r['Provided']},{r['Auto']},{r['Logic']},{r['Query']},{r['Reason']},{r['Similarity']}" for r in table_rows
+            csv_content = "Provided,Auto,Logic,Query,Similarity\n" + "\n".join(
+                f"{r['Provided']},{r['Auto']},{r['Logic']},{r['Query']},{r['Similarity']}" for r in table_rows
             )
             results['queries_csv'] = csv_content
 
