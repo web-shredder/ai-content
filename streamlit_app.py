@@ -456,7 +456,7 @@ def parse_queries(text: str) -> list[dict]:
     any explanation that follows a dash."""
 
     queries: list[dict] = []
-    bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
+    bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+[.)])\s*(.+)")
     typed_pattern = re.compile(r"(?P<type>[^:]+):\s*(?P<rest>.+)")
     capture = False
     found = False
@@ -470,8 +470,6 @@ def parse_queries(text: str) -> list[dict]:
                 continue
         else:
             if not line.strip():
-                if found:
-                    break
                 continue
 
             match = bullet_pattern.match(line)
