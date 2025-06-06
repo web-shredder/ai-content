@@ -455,7 +455,9 @@ def parse_queries(text: str) -> list[dict]:
 
     queries: list[dict] = []
     bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
-    typed_pattern = re.compile(r"(?P<type>[^:]+):\s*(?P<query>.+)")
+    typed_pattern = re.compile(
+        r"(?P<type>[^:]+):\s*(?P<query>.*?)(?:\s+-\s*.*)?$"
+    )
 
     capture = False
     found = False
@@ -519,26 +521,34 @@ def cosine_sim(v1: list[float], v2: list[float]) -> float:
 
 
 def classify_query(query: str) -> str:
-    """Heuristically classify a query into fanout types."""
+    """Heuristically classify a query into fan-out types."""
     q = query.lower()
 
-    if any(t in q for t in [" vs ", "compare", "versus"]):
+    if any(t in q for t in [" vs ", "versus", "compare", "difference", "better than"]):
         return "comparative"
-    if any(t in q for t in ["near me", "in ", "location", "at "]):
+
+    if re.search(r"\b(near me|in [a-z]+|at [a-z]+|location|city|country)\b", q):
         return "location"
-    if any(t in q for t in ["202", "today", "latest", "year", "month"]):
+
+    if re.search(r"\b(20\d{2}|today|latest|this year|this month)\b", q) or re.search(r"\b\d+[- ]?(day|week|month|year)s?\b", q):
         return "temporal"
-    if any(t in q for t in ["my ", "for me", "i ", "personalized"]):
+
+    if re.search(r"\b(my|for me|i |personalized|best for me|should i)\b", q):
         return "personalized"
-    if any(t in q for t in ["error", "install", "setup", "troubleshoot", "code", "configuration"]):
+
+    if any(t in q for t in ["error", "install", "setup", "troubleshoot", "code", "configuration", "how to", "fix"]):
         return "technical"
-    if any(t in q for t in ["alternative", "similar", "related"]):
+
+    if any(t in q for t in ["alternative", "similar", "related", "competitor"]):
         return "entity_expansion"
-    if any(t in q for t in ["what is", "define", "definition"]):
+
+    if any(t in q for t in ["what is", "define", "definition", "meaning"]):
         return "reformulation"
+
     first = q.split()[0] if q.split() else ""
     if first in ["how", "why", "what", "where", "when", "who"]:
         return "user_intent"
+
     return "implicit"
 
 
@@ -1039,6 +1049,8 @@ def display_generated_content(results, model, api_key, session_placeholder):
             
         if results.get('queries_typed'):
             st.markdown("### Suggested Search Queries")
+            if len(results['queries_typed']) < 20:
+                st.warning("SEO Specialist produced fewer than 20 queries.")
             for q in results['queries_typed']:
                 label = f"{q['type']}: " if q['type'] else ""
                 st.markdown(f"- {label}{q['query']}")
