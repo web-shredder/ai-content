@@ -450,15 +450,13 @@ def parse_next_steps(output):
 def parse_queries(text: str) -> list[dict]:
     """Extract search queries from SEO Specialist output.
 
-    Returns a list of dictionaries with ``type`` and ``query`` keys so we can
-    validate how the SEO agent labeled each suggestion."""
+    Returns a list of dictionaries with ``type``, ``query`` and ``note`` keys
+    so we can validate how the SEO agent labeled each suggestion and capture
+    any explanation that follows a dash."""
 
     queries: list[dict] = []
     bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
-    typed_pattern = re.compile(
-        r"(?P<type>[^:]+):\s*(?P<query>.*?)(?:\s+-\s*.*)?$"
-    )
-
+    typed_pattern = re.compile(r"(?P<type>[^:]+):\s*(?P<rest>.+)")
     capture = False
     found = False
     for line in text.splitlines():
@@ -481,13 +479,21 @@ def parse_queries(text: str) -> list[dict]:
                 tmatch = typed_pattern.match(item)
                 if tmatch:
                     qtype = tmatch.group("type").strip().lower().replace(" ", "_")
-                    qtext = tmatch.group("query").strip()
+                    rest = tmatch.group("rest").strip()
                 else:
                     qtype = ""
-                    qtext = item
+                    rest = item
+
+                if " - " in rest:
+                    qtext, note = rest.split(" - ", 1)
+                    qtext = qtext.strip()
+                    note = note.strip()
+                else:
+                    qtext = rest
+                    note = ""
 
                 if qtext:
-                    queries.append({"type": qtype, "query": qtext})
+                    queries.append({"type": qtype, "query": qtext, "note": note})
                     found = True
             else:
                 if found:
@@ -1049,8 +1055,8 @@ def display_generated_content(results, model, api_key, session_placeholder):
             
         if results.get('queries_typed'):
             st.markdown("### Suggested Search Queries")
-            if len(results['queries_typed']) < 20:
-                st.warning("SEO Specialist produced fewer than 20 queries.")
+            if len(results['queries_typed']) < 15:
+                st.warning("SEO Specialist produced fewer than 15 queries.")
             for q in results['queries_typed']:
                 label = f"{q['type']}: " if q['type'] else ""
                 st.markdown(f"- {label}{q['query']}")
@@ -1064,6 +1070,7 @@ def display_generated_content(results, model, api_key, session_placeholder):
             )
 
             provided_map = {q['query']: q['type'] for q in results.get('queries_typed', [])}
+            note_map = {q['query']: q.get('note', '') for q in results.get('queries_typed', [])}
             table_rows = []
             for nid, data in node_info.items():
                 if nid == "n0":
@@ -1077,10 +1084,13 @@ def display_generated_content(results, model, api_key, session_placeholder):
                     "Auto": auto_type,
                     "Logic": logic_check,
                     "Query": q_text,
+                    "Reason": note_map.get(q_text, ""),
                     "Similarity": round(data['similarity'], 2)
                 })
 
             st.table(table_rows)
+            csv_content = "Provided,Auto,Logic,Query,Reason,Similarity\n" + "\n".join(
+                f"{r['Provided']},{r['Auto']},{r['Logic']},{r['Query']},{r['Reason']},{r['Similarity']}" for r in table_rows
             csv_content = "Provided,Auto,Logic,Query,Similarity\n" + "\n".join(
                 f"{r['Provided']},{r['Auto']},{r['Logic']},{r['Query']},{r['Similarity']}" for r in table_rows
             )
@@ -1096,6 +1106,7 @@ def display_generated_content(results, model, api_key, session_placeholder):
                     "</div>"
                 )
                 provided = provided_map.get(data['text'])
+                note = note_map.get(data['text'])
                 auto = classify_query(data['text'])
                 color = None
                 if provided:
@@ -1103,7 +1114,7 @@ def display_generated_content(results, model, api_key, session_placeholder):
                 net.add_node(
                     nid,
                     label=data['text'],
-                    title=title_html,
+                    title=title_html if not note else title_html.replace('</div>', f"<div class='query-meta'>Note: {note}</div></div>", 1),
                     shape='box',
                     size=size,
                     color=color,
