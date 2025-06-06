@@ -27,6 +27,14 @@ class ParseQueriesTest(unittest.TestCase):
         ]
         self.assertEqual(parse_queries(text), expected)
 
+    def test_query_with_note(self):
+        text = """Search Queries:\n- Comparative: fasttrace vs jaeger - note\n- Reformulation: what is fasttrace - explanation"""
+        expected = [
+            {"type": "comparative", "query": "fasttrace vs jaeger"},
+            {"type": "reformulation", "query": "what is fasttrace"},
+        ]
+        self.assertEqual(parse_queries(text), expected)
+
     def test_non_bullet_lines(self):
         text = """Search Queries:\n1. Why use FastTrace?\n2. FastTrace vs Zipkin\nNotes:"""
         expected = [
