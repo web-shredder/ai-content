@@ -457,7 +457,6 @@ def parse_queries(text: str) -> list[dict]:
     queries: list[dict] = []
     bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
     typed_pattern = re.compile(r"(?P<type>[^:]+):\s*(?P<rest>.+)")
-
     capture = False
     found = False
     for line in text.splitlines():
