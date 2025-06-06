@@ -43,5 +43,13 @@ class ParseQueriesTest(unittest.TestCase):
         ]
         self.assertEqual(parse_queries(text), expected)
 
+    def test_numbered_parentheses_and_blank_lines(self):
+        text = """Search Queries:\n1) Comparative: fasttrace vs jaeger\n\n2) Reformulation: what is fasttrace - expl"""
+        expected = [
+            {"type": "comparative", "query": "fasttrace vs jaeger", "note": ""},
+            {"type": "reformulation", "query": "what is fasttrace", "note": "expl"},
+        ]
+        self.assertEqual(parse_queries(text), expected)
+
 if __name__ == '__main__':
     unittest.main()
