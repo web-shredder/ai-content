@@ -58,6 +58,5 @@ class ParseQueriesTest(unittest.TestCase):
             {"type": "implicit", "query": "tracing library", "note": ""},
         ]
         self.assertEqual(parse_queries(text), expected)
-
 if __name__ == '__main__':
     unittest.main()
