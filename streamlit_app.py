@@ -438,26 +438,30 @@ def parse_queries(text: str) -> list[str]:
     bullet_pattern = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(.+)")
 
     capture = False
+    found = False
     for line in text.splitlines():
         lower = line.lower().strip()
         if not capture:
-            if "query" in lower and (":" in lower or lower.startswith("#")):
+            if "search queries" in lower or (
+                "query" in lower and (":" in lower or lower.startswith("#"))
+            ):
                 capture = True
                 continue
-            if "search queries" in lower:
-                capture = True
-                continue
-        if capture:
+        else:
             if not line.strip():
-                break
+                if found:
+                    break
+                continue
+
             match = bullet_pattern.match(line)
             if match:
                 query = match.group(1).strip()
                 if query:
                     queries.append(query)
+                    found = True
             else:
-                # Stop if we reach a non-bullet line
-                break
+                if found:
+                    break
 
     seen = set()
     unique = []
